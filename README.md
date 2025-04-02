@@ -1,29 +1,11 @@
-# Rsbuild project
+# Visualize webpack dependencies
 
-## Setup
+![image](https://github.com/user-attachments/assets/a37163c0-1fb5-417e-9bbf-1eedf7344ddf)
 
-Install the dependencies:
+This project is used to visualize webpack dependencies
 
-```bash
-pnpm install
-```
+Built using:
 
-## Get started
-
-Start the dev server:
-
-```bash
-pnpm dev
-```
-
-Build the app for production:
-
-```bash
-pnpm build
-```
-
-Preview the production build locally:
-
-```bash
-pnpm preview
-```
+- Trae, the whole project is built by Trae, honestly I just wrote the webpack plugin part
+- rsbuild, provide great DX
+- Arco Design
