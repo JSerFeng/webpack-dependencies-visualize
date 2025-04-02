@@ -1,0 +1,12 @@
+{
+  "name": "compiler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "webpack": "^5.98.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
