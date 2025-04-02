@@ -12,6 +12,20 @@ function App() {
     isCompiling: false,
     error: null as string | null
   });
+  const [initialCode, setInitialCode] = useState('');
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('code=')) {
+      const encodedCode = hash.split('code=')[1];
+      try {
+        const code = atob(decodeURIComponent(encodedCode));
+        setInitialCode(code);
+      } catch (error) {
+        console.error('Failed to decode URL code:', error);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -48,7 +62,12 @@ function App() {
 
   return (
     <div style={{ height: '100vh' }}>
-      <MainLayout onCompile={handleCompile} stats={stats} status={status} />
+      <MainLayout 
+        onCompile={handleCompile} 
+        stats={stats} 
+        status={status}
+        initialCode={initialCode}
+      />
     </div>
   );
 }

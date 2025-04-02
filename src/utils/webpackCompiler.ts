@@ -1,4 +1,4 @@
-import { initWebContainer, mkdir, writeFile } from "./webContainer";
+import { initWebContainer, writeFile } from "./webContainer";
 import type { Dependency } from "webpack";
 
 export type WebpackDependency = {
@@ -8,9 +8,21 @@ export type WebpackDependency = {
   loc?: Pick<Dependency, "loc">;
 };
 
+export type WebpackBlock = {
+  type: string;
+  category: string;
+  ids?: string[];
+  loc?: Pick<Dependency, "loc">;
+  dependencies?: WebpackDependency[];
+};
+
 export interface CompileResult {
   success: boolean;
-  data?: { deps: WebpackDependency[] };
+  data?: {
+    deps: WebpackDependency[];
+    presentationalDeps: WebpackDependency[];
+    blocks: WebpackBlock[];
+  };
   error?: string;
 }
 
@@ -37,7 +49,7 @@ export const compileCode = async (code: string): Promise<CompileResult> => {
     try {
       return {
         success: true,
-        data: { deps: JSON.parse(result.value!) },
+        data: JSON.parse(result.value!),
       };
     } catch (error) {
       return {
