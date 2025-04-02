@@ -6,7 +6,6 @@ body {
 }
 
 .dependency-item {
-  transition: all 0.3s ease;
   background-color: rgba(255, 255, 255, 0.05);
   padding: 12px !important;
   border-radius: 4px;

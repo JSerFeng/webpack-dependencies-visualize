@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { message } from 'antd';
+import { Message } from '@arco-design/web-react';
 import MainLayout from './components/MainLayout';
 import { compileCode } from './utils/webpackCompiler';
 import { initWebContainer, destroyWebContainer } from './utils/webContainer';
+import '@arco-design/web-react/dist/css/arco.css';
 import './App.css';
 
 function App() {
@@ -56,7 +57,7 @@ function App() {
       setStatus(prev => ({ ...prev, isCompiling: false }));
     } else {
       setStatus(prev => ({ ...prev, isCompiling: false, error: result.error || '编译失败' }));
-      message.error(result.error || '编译失败');
+      Message.error(result.error || '编译失败');
     }
   };
 

@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Layout, Button, Card, Alert, message } from "antd";
+import { Layout, Button, Card, Alert, Message } from "@arco-design/web-react";
 import {
-  PlayCircleOutlined,
-  DownOutlined,
-  UpOutlined,
-  ShareAltOutlined,
-  CodeOutlined,
-} from "@ant-design/icons";
+  IconPlayCircle,
+  IconDown,
+  IconUp,
+  IconShareExternal,
+  IconCode,
+} from "@arco-design/web-react/icon";
 import Editor, { useMonaco } from "@monaco-editor/react";
 import type { WebpackDependency, WebpackBlock } from "../utils/webpackCompiler";
 import type { editor } from "monaco-editor";
@@ -148,8 +148,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   }, [stats]);
 
   return (
-    <Layout style={{ height: "100vh" }}>
-      <Sider width={500} theme="light" style={{ padding: "20px", borderRight: "1px solid #f0f0f0" }}>
+    <Layout style={{ height: "100vh", background: "#141414" }}>
+      <Sider
+        width={600}
+        theme="dark"
+        style={{ padding: "20px", borderRight: "1px solid #303030" }}
+      >
         <div style={{ height: "calc(100% - 50px)" }}>
           <Editor
             height="100%"
@@ -169,7 +173,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
           <Button
             type="primary"
-            icon={<PlayCircleOutlined />}
+            icon={<IconPlayCircle />}
             onClick={() => onCompile(code)}
             disabled={status.isCompiling || status.isInitializing}
           >
@@ -177,25 +181,31 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               ? "Analyzing..."
               : status.isInitializing
               ? "Initializing..."
-              : "analyze"}
+              : "Analyze"}
           </Button>
           <Button
-            icon={<ShareAltOutlined />}
+            icon={<IconShareExternal />}
             onClick={() => {
               const encodedCode = encodeURIComponent(btoa(code));
               window.location.hash = `#code=${encodedCode}`;
               navigator.clipboard.writeText(window.location.href);
-              message.success("链接已复制到剪贴板");
+              Message.success("Url copied");
             }}
           >
-            分享
+            Copy Share Link
           </Button>
         </div>
       </Sider>
-      <Content style={{ padding: "20px", overflow: "auto" }}>
+      <Content
+        style={{
+          padding: "20px",
+          overflow: "auto",
+          width: "calc(100% - 1000px)",
+        }}
+      >
         <div
           style={{
-            background: "#fff",
+            background: "#141414",
             padding: "20px",
             display: "flex",
             flexDirection: "column",
@@ -203,17 +213,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           }}
         >
           {status.isInitializing && (
-            <Alert message="正在初始化 WebContainer..." type="info" showIcon />
+            <Alert content="Initializing WebContainer..." type="info" icon />
           )}
           {status.isCompiling && (
-            <Alert message="Webpack 编译中..." type="info" showIcon />
+            <Alert content="Webpack compiling..." type="info" icon />
           )}
           {status.error && (
             <Alert
-              message="编译错误"
-              description={status.error}
+              title="Compile Error"
+              content={status.error}
               type="error"
-              showIcon
+              icon
             />
           )}
           {status.isCompiling || status.isInitializing ? (
@@ -222,7 +232,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             <div
               style={{ display: "flex", flexDirection: "column", gap: "20px" }}
             >
-              <Card title="Dependencies">
+              <Card
+                title="Dependencies"
+              >
                 {stats.deps.map((dep, idx) => {
                   return (
                     <div
@@ -235,7 +247,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                       style={{
                         cursor: "pointer",
                         padding: "8px",
-                        borderBottom: "1px solid #f0f0f0",
+                        borderBottom: "1px solid #303030",
                       }}
                       onClick={() => toggleExpand(idx)}
                     >
@@ -246,20 +258,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           alignItems: "center",
                         }}
                       >
-                        <span>{dep.type}</span>
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            color: "#888",
-                            paddingRight: "16px",
-                          }}
-                        >
-                          {dep.category}
-                        </span>
+                        <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
                         {expandedDeps[idx] ? (
-                          <UpOutlined style={{ marginLeft: 8 }} />
+                          <IconUp style={{ marginLeft: 8 }} />
                         ) : (
-                          <DownOutlined style={{ marginLeft: 8 }} />
+                          <IconDown style={{ marginLeft: 8 }} />
                         )}
                       </div>
                       {expandedDeps[idx] && dep.ids && (
@@ -267,16 +270,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           style={{
                             marginTop: "8px",
                             padding: "8px",
-                            background: "#f5f5f5",
+                            background: "#141414",
                             borderRadius: "4px",
                           }}
                         >
                           <div
-                            style={{ fontWeight: "bold", marginBottom: "4px" }}
+                            style={{
+                              fontWeight: "bold",
+                              marginBottom: "4px",
+                              color: "#e6e6e6",
+                            }}
                           >
-                            IDs:
+                            ids:
                           </div>
-                          <div style={{ display: "flex" }}>
+                          <div style={{ display: "flex", color: "#e6e6e6" }}>
                             {dep.ids.join(", ")}
                           </div>
                         </div>
@@ -285,7 +292,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   );
                 })}
               </Card>
-              <Card title="Presentational Dependencies">
+              <Card
+                title="Presentational Dependencies"
+              >
                 {stats.presentationalDeps.map((dep, idx) => {
                   return (
                     <div
@@ -298,7 +307,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                       style={{
                         cursor: "pointer",
                         padding: "8px",
-                        borderBottom: "1px solid #f0f0f0",
+                        borderBottom: "1px solid #303030",
                       }}
                       onClick={() => toggleExpand(idx)}
                     >
@@ -309,20 +318,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           alignItems: "center",
                         }}
                       >
-                        <span>{dep.type}</span>
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            color: "#888",
-                            paddingRight: "16px",
-                          }}
-                        >
-                          {dep.category}
-                        </span>
+                        <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
                         {expandedDeps[idx] ? (
-                          <UpOutlined style={{ marginLeft: 8 }} />
+                          <IconUp style={{ marginLeft: 8 }} />
                         ) : (
-                          <DownOutlined style={{ marginLeft: 8 }} />
+                          <IconDown style={{ marginLeft: 8 }} />
                         )}
                       </div>
                       {expandedDeps[idx] && dep.ids && (
@@ -330,14 +330,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           style={{
                             marginTop: "8px",
                             padding: "8px",
-                            background: "#f5f5f5",
+                            background: "#141414",
                             borderRadius: "4px",
                           }}
                         >
                           <div
-                            style={{ fontWeight: "bold", marginBottom: "4px" }}
+                            style={{
+                              fontWeight: "bold",
+                              marginBottom: "4px",
+                              color: "#e6e6e6",
+                            }}
                           >
-                            IDs:
+                            ids:
+                          </div>
+                          <div style={{ display: "flex", color: "#e6e6e6" }}>
+                            {dep.ids.join(", ")}
                           </div>
                           <div
                             style={{
@@ -352,7 +359,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                                 style={{
                                   fontSize: "12px",
                                   padding: "2px 4px",
-                                  background: "#e6f7ff",
+                                  background: "#111d2c",
                                   borderRadius: "2px",
                                 }}
                               >
@@ -366,7 +373,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   );
                 })}
               </Card>
-              <Card title="Blocks">
+              <Card
+                title="Blocks"
+              >
                 {stats.blocks.map((block, idx) => {
                   return (
                     <div
@@ -377,7 +386,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                       style={{
                         cursor: "pointer",
                         padding: "8px",
-                        borderBottom: "1px solid #f0f0f0",
+                        borderBottom: "1px solid #303030",
                       }}
                       onMouseEnter={() => highlightRange(block)}
                       onMouseLeave={clearHighlight}
@@ -390,20 +399,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           alignItems: "center",
                         }}
                       >
-                        <span>Async Dependency Block</span>
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            color: "#888",
-                            paddingRight: "16px",
-                          }}
-                        >
-                          {block.category}
+                        <span style={{ color: "#e6e6e6" }}>
+                          Async Dependency Block
                         </span>
                         {expandedDeps[idx] ? (
-                          <UpOutlined style={{ marginLeft: 8 }} />
+                          <IconUp style={{ marginLeft: 8 }} />
                         ) : (
-                          <DownOutlined style={{ marginLeft: 8 }} />
+                          <IconDown style={{ marginLeft: 8 }} />
                         )}
                       </div>
                       {expandedDeps[idx] && block.ids && (
@@ -411,14 +413,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           style={{
                             marginTop: "8px",
                             padding: "8px",
-                            background: "#f5f5f5",
+                            background: "#141414",
                             borderRadius: "4px",
                           }}
                         >
                           <div
                             style={{ fontWeight: "bold", marginBottom: "4px" }}
                           >
-                            IDs:
+                            ids:
                           </div>
                           <div
                             style={{
@@ -436,7 +438,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           style={{
                             marginTop: "8px",
                             padding: "8px",
-                            background: "#f5f5f5",
+                            background: "#141414",
                             borderRadius: "4px",
                           }}
                         >
@@ -448,11 +450,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           {block.dependencies.map((dep, depIdx) => (
                             <div key={depIdx} style={{ marginBottom: "4px" }}>
                               <div>
-                                {dep.type} ({dep.category})
+                                <div style={{ color: "#e6e6e6" }}>
+                                  {dep.type} ({dep.category})
+                                </div>
                               </div>
                               {dep.ids && (
                                 <div
-                                  style={{ fontSize: "12px", color: "#666" }}
+                                  style={{ fontSize: "12px", color: "#a6a6a6" }}
                                 >
                                   {dep.ids.join(", ")}
                                 </div>
@@ -467,31 +471,48 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               </Card>
             </div>
           ) : (
-            <div>Click to start</div>
+            <div>Click Analyze to start</div>
           )}
         </div>
       </Content>
-      <Sider width={400} theme="light" style={{ padding: "20px", borderLeft: "1px solid #f0f0f0" }}>
+      <Sider
+        width={400}
+        theme="dark"
+        style={{ padding: "20px", borderLeft: "1px solid #303030" }}
+      >
         {stats && (
           <Card
             title={
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <CodeOutlined />
-                <span>Stats JSON</span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <IconCode />
+                <span>JSON</span>
               </div>
             }
-            style={{ height: "100%", overflow: "auto" }}
+            style={{
+              height: "100%",
+              overflow: "auto",
+              background: "#1f1f1f",
+              color: "#fff",
+              borderColor: "#303030",
+            }}
           >
             <pre
               style={{
                 margin: 0,
                 padding: "8px",
-                background: "#f5f5f5",
+                background: "#141414",
                 borderRadius: "4px",
                 fontSize: "12px",
                 lineHeight: "1.5",
                 overflow: "auto",
                 maxHeight: "calc(100vh - 150px)",
+                color: "#fff",
               }}
             >
               {JSON.stringify(stats, null, 2)}

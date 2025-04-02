@@ -11,10 +11,9 @@
     "preview": "rsbuild preview"
   },
   "dependencies": {
-    "@ant-design/icons": "^5.3.0",
+    "@arco-design/web-react": "^2.57.1",
     "@monaco-editor/react": "^4.6.0",
     "@webcontainer/api": "^1.1.8",
-    "antd": "^5.14.1",
     "memfs": "^4.17.0",
     "monaco-editor": "^0.45.0",
     "react": "^19.0.0",
