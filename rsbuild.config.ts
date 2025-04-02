@@ -7,7 +7,8 @@ export default defineConfig({
   output: {
     externals: [
       'terser-webpack-plugin'
-    ]
+    ],
+    sourceMap: true,
   },
   server: {
     headers: {

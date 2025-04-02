@@ -5,6 +5,7 @@ import {
   DownOutlined,
   UpOutlined,
   ShareAltOutlined,
+  CodeOutlined,
 } from "@ant-design/icons";
 import Editor, { useMonaco } from "@monaco-editor/react";
 import type { WebpackDependency, WebpackBlock } from "../utils/webpackCompiler";
@@ -148,7 +149,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <Layout style={{ height: "100vh" }}>
-      <Sider width={500} theme="light" style={{ padding: "20px" }}>
+      <Sider width={500} theme="light" style={{ padding: "20px", borderRight: "1px solid #f0f0f0" }}>
         <div style={{ height: "calc(100% - 50px)" }}>
           <Editor
             height="100%"
@@ -470,6 +471,34 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           )}
         </div>
       </Content>
+      <Sider width={400} theme="light" style={{ padding: "20px", borderLeft: "1px solid #f0f0f0" }}>
+        {stats && (
+          <Card
+            title={
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <CodeOutlined />
+                <span>Stats JSON</span>
+              </div>
+            }
+            style={{ height: "100%", overflow: "auto" }}
+          >
+            <pre
+              style={{
+                margin: 0,
+                padding: "8px",
+                background: "#f5f5f5",
+                borderRadius: "4px",
+                fontSize: "12px",
+                lineHeight: "1.5",
+                overflow: "auto",
+                maxHeight: "calc(100vh - 150px)",
+              }}
+            >
+              {JSON.stringify(stats, null, 2)}
+            </pre>
+          </Card>
+        )}
+      </Sider>
     </Layout>
   );
 };
