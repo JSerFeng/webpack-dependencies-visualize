@@ -6,6 +6,6 @@ This project is used to visualize webpack dependencies
 
 Built using:
 
-- Trae, the whole project is built by Trae, honestly I just wrote the webpack plugin part
+- Trae, the whole project is built by Trae, honestly I probably just wrote the webpack plugin part
 - rsbuild, provide great DX
 - Arco Design
