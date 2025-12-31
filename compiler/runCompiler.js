@@ -55,6 +55,18 @@ function getRawData(dep) {
       return obj.map(serialize);
     }
 
+    if (obj instanceof Set) {
+      return Array.from(obj).map(serialize);
+    }
+
+    if (obj instanceof Map) {
+      const mapObj = {};
+      for (const [k, v] of obj) {
+        mapObj[String(k)] = serialize(v);
+      }
+      return mapObj;
+    }
+
     // Capture all keys including accessors from prototype chain
     const allKeys = new Set();
     let current = obj;

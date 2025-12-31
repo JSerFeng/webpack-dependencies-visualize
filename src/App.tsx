@@ -17,15 +17,31 @@ function App() {
   const [mode, setMode] = useState<'development' | 'production'>('development');
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.includes('code=')) {
-      const encodedCode = hash.split('code=')[1];
+    const hash = window.location.hash.slice(1); // remove #
+    if (!hash) return;
+
+    // Handle legacy format (simple string) vs new params
+    const params = new URLSearchParams(hash);
+    
+    // Try getting code from params, fallback to splitting string if not found
+    // (legacy URls were typically #code=...)
+    let encodedCode = params.get('code');
+    if (!encodedCode && hash.includes('code=')) {
+        encodedCode = hash.split('code=')[1];
+    }
+
+    if (encodedCode) {
       try {
         const code = atob(decodeURIComponent(encodedCode));
         setInitialCode(code);
       } catch (error) {
         console.error('Failed to decode URL code:', error);
       }
+    }
+
+    const modeParam = params.get('mode');
+    if (modeParam === 'development' || modeParam === 'production') {
+        setMode(modeParam);
     }
   }, []);
 

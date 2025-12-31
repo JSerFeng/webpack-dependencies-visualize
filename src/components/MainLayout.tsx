@@ -199,7 +199,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             icon={<IconShareExternal />}
             onClick={() => {
               const encodedCode = encodeURIComponent(btoa(code));
-              window.location.hash = `#code=${encodedCode}`;
+              const params = new URLSearchParams();
+              params.set('code', encodedCode);
+              params.set('mode', mode);
+              window.location.hash = params.toString();
               navigator.clipboard.writeText(window.location.href);
               Message.success("Url copied");
             }}
