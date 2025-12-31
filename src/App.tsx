@@ -14,6 +14,7 @@ function App() {
     error: null as string | null
   });
   const [initialCode, setInitialCode] = useState('');
+  const [mode, setMode] = useState<'development' | 'production'>('development');
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -50,7 +51,7 @@ function App() {
 
   const handleCompile = async (code: string) => {
     setStatus(prev => ({ ...prev, isCompiling: true, error: null }));
-    const result = await compileCode(code);
+    const result = await compileCode(code, mode);
 
     if (result.success && result.data) {
       setStats(result.data);
@@ -68,6 +69,8 @@ function App() {
         stats={stats} 
         status={status}
         initialCode={initialCode}
+        mode={mode}
+        setMode={setMode}
       />
     </div>
   );

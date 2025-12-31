@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Layout, Button, Card, Alert, Message } from "@arco-design/web-react";
+import { Layout, Button, Card, Alert, Message, Select } from "@arco-design/web-react";
 import {
   IconPlayCircle,
   IconDown,
@@ -27,6 +27,8 @@ interface MainLayoutProps {
     error: string | null;
   };
   initialCode: string;
+  mode: 'development' | 'production';
+  setMode: (mode: 'development' | 'production') => void;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -34,6 +36,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   stats,
   status,
   initialCode,
+  mode,
+  setMode,
 }) => {
   const [code, setCode] = useState<string>(initialCode);
 
@@ -42,7 +46,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   }, [initialCode]);
   const [expandedDeps, setExpandedDeps] = useState<Record<number, boolean>>({});
   const [hoveredItemIndex, setHoveredItemIndex] = useState<number | null>(null);
-  const statsRef = useRef<Stats>(null);
   const monaco = useMonaco();
   const editorRef = useRef<editor.IStandaloneCodeEditor>(null);
   const decorationsCollectionRef =
@@ -171,6 +174,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           />
         </div>
         <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
+          <Select
+            value={mode}
+            onChange={setMode}
+            style={{ width: 150 }}
+            disabled={status.isCompiling || status.isInitializing}
+          >
+            <Select.Option value="development">Development</Select.Option>
+            <Select.Option value="production">Production</Select.Option>
+          </Select>
           <Button
             type="primary"
             icon={<IconPlayCircle />}
@@ -353,7 +365,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                               gap: "4px",
                             }}
                           >
-                            {dep.ids.map((id, i) => (
+                            {dep.ids.map((id: string, i: number) => (
                               <span
                                 key={i}
                                 style={{
@@ -496,27 +508,27 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             }
             style={{
               height: "100%",
-              overflow: "auto",
               background: "#1f1f1f",
               color: "#fff",
               borderColor: "#303030",
             }}
           >
-            <pre
-              style={{
-                margin: 0,
-                padding: "8px",
-                background: "#141414",
-                borderRadius: "4px",
-                fontSize: "12px",
-                lineHeight: "1.5",
-                overflow: "auto",
-                maxHeight: "calc(100vh - 150px)",
-                color: "#fff",
-              }}
-            >
-              {JSON.stringify(stats, null, 2)}
-            </pre>
+            <div style={{ height: "calc(100vh - 180px)" }}>
+              <Editor
+                height="100%"
+                defaultLanguage="json"
+                value={JSON.stringify(stats, null, 2)}
+                theme="vs-dark"
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  fontSize: 12,
+                  lineNumbers: "off",
+                  folding: true,
+                }}
+              />
+            </div>
           </Card>
         )}
       </Sider>

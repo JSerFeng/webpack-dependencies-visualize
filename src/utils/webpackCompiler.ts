@@ -1,19 +1,20 @@
 import { initWebContainer, writeFile } from "./webContainer";
-import type { Dependency } from "webpack";
 
 export type WebpackDependency = {
-  type: string;
-  category: string;
-  ids?: string[];
-  loc?: Pick<Dependency, "loc">;
+//   type: string;
+//   category: string;
+//   ids?: string[];
+//   loc?: Pick<Dependency, "loc">;
+  [key: string]: any;
 };
 
 export type WebpackBlock = {
-  type: string;
-  category: string;
-  ids?: string[];
-  loc?: Pick<Dependency, "loc">;
+//   type: string;
+//   category: string;
+//   ids?: string[];
+//   loc?: Pick<Dependency, "loc">;
   dependencies?: WebpackDependency[];
+  [key: string]: any;
 };
 
 export interface CompileResult {
@@ -26,14 +27,14 @@ export interface CompileResult {
   error?: string;
 }
 
-export const compileCode = async (code: string): Promise<CompileResult> => {
+export const compileCode = async (code: string, mode: 'development' | 'production' = 'development'): Promise<CompileResult> => {
   try {
     const container = await initWebContainer();
 
     // 写入入口文件
     await writeFile("/src/index.js", code);
     // 运行webpack
-    const webpackProcess = await container.spawn("node", ["runCompiler.js"]);
+    const webpackProcess = await container.spawn("node", ["runCompiler.js", "--mode", mode]);
     const webpackOutput = await webpackProcess.output;
     const exitCode = await webpackProcess.exit;
 
