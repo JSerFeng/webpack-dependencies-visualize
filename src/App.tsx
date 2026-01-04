@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Message } from '@arco-design/web-react';
 import MainLayout from './components/MainLayout';
-import { compileCode } from './utils/webpackCompiler';
+import { compileCode, FileMap } from './utils/webpackCompiler';
 import { initWebContainer, destroyWebContainer } from './utils/webContainer';
 import '@arco-design/web-react/dist/css/arco.css';
 import './App.css';
@@ -13,29 +13,40 @@ function App() {
     isCompiling: false,
     error: null as string | null
   });
-  const [initialCode, setInitialCode] = useState('');
+  const [initialFiles, setInitialFiles] = useState<FileMap | null>(null);
   const [mode, setMode] = useState<'development' | 'production'>('development');
 
   useEffect(() => {
     const hash = window.location.hash.slice(1); // remove #
     if (!hash) return;
 
-    // Handle legacy format (simple string) vs new params
     const params = new URLSearchParams(hash);
     
-    // Try getting code from params, fallback to splitting string if not found
-    // (legacy URls were typically #code=...)
-    let encodedCode = params.get('code');
-    if (!encodedCode && hash.includes('code=')) {
-        encodedCode = hash.split('code=')[1];
-    }
-
-    if (encodedCode) {
+    // Try new multi-file format first
+    const encodedFiles = params.get('files');
+    if (encodedFiles) {
       try {
-        const code = atob(decodeURIComponent(encodedCode));
-        setInitialCode(code);
+        const filesJson = decodeURIComponent(escape(atob(decodeURIComponent(encodedFiles))));
+        const files = JSON.parse(filesJson) as FileMap;
+        setInitialFiles(files);
       } catch (error) {
-        console.error('Failed to decode URL code:', error);
+        console.error('Failed to decode URL files:', error);
+      }
+    } else {
+      // Fallback to legacy single-file format
+      let encodedCode = params.get('code');
+      if (!encodedCode && hash.includes('code=')) {
+          encodedCode = hash.split('code=')[1];
+      }
+
+      if (encodedCode) {
+        try {
+          const code = atob(decodeURIComponent(encodedCode));
+          // Legacy format: only index.js
+          setInitialFiles({ "index.js": code });
+        } catch (error) {
+          console.error('Failed to decode URL code:', error);
+        }
       }
     }
 
@@ -65,9 +76,9 @@ function App() {
     };
   }, []);
 
-  const handleCompile = async (code: string) => {
+  const handleCompile = async (files: FileMap) => {
     setStatus(prev => ({ ...prev, isCompiling: true, error: null }));
-    const result = await compileCode(code, mode);
+    const result = await compileCode(files, mode);
 
     if (result.success && result.data) {
       setStats(result.data);
@@ -84,7 +95,7 @@ function App() {
         onCompile={handleCompile} 
         stats={stats} 
         status={status}
-        initialCode={initialCode}
+        initialFiles={initialFiles}
         mode={mode}
         setMode={setMode}
       />
@@ -93,3 +104,4 @@ function App() {
 }
 
 export default App;
+

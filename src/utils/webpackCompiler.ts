@@ -1,39 +1,49 @@
-import { initWebContainer, writeFile } from "./webContainer";
+import { initWebContainer, writeFile, mkdir } from "./webContainer";
 
 export type WebpackDependency = {
-//   type: string;
-//   category: string;
-//   ids?: string[];
-//   loc?: Pick<Dependency, "loc">;
+  targetModule?: string;
   [key: string]: any;
 };
 
 export type WebpackBlock = {
-//   type: string;
-//   category: string;
-//   ids?: string[];
-//   loc?: Pick<Dependency, "loc">;
   dependencies?: WebpackDependency[];
   [key: string]: any;
+};
+
+export type WebpackModule = {
+  path: string;
+  deps: WebpackDependency[];
+  presentationalDeps: WebpackDependency[];
+  blocks: WebpackBlock[];
 };
 
 export interface CompileResult {
   success: boolean;
   data?: {
-    deps: WebpackDependency[];
-    presentationalDeps: WebpackDependency[];
-    blocks: WebpackBlock[];
+    modules: WebpackModule[];
   };
   error?: string;
 }
 
-export const compileCode = async (code: string, mode: 'development' | 'production' = 'development'): Promise<CompileResult> => {
+export type FileMap = { [filename: string]: string };
+
+export const compileCode = async (
+  files: FileMap,
+  mode: 'development' | 'production' = 'development'
+): Promise<CompileResult> => {
   try {
     const container = await initWebContainer();
 
-    // 写入入口文件
-    await writeFile("/src/index.js", code);
-    // 运行webpack
+    // Ensure /src directory exists
+    await mkdir("/src");
+
+    // Write all files to WebContainer
+    for (const [filename, content] of Object.entries(files)) {
+      const filePath = filename.startsWith('/') ? filename : `/src/${filename}`;
+      await writeFile(filePath, content);
+    }
+
+    // Run webpack
     const webpackProcess = await container.spawn("node", ["runCompiler.js", "--mode", mode]);
     const webpackOutput = await webpackProcess.output;
     const exitCode = await webpackProcess.exit;
@@ -65,3 +75,4 @@ export const compileCode = async (code: string, mode: 'development' | 'productio
     };
   }
 };
+

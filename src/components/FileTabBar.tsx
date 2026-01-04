@@ -1,0 +1,56 @@
+import React from "react";
+import { Button } from "@arco-design/web-react";
+import { IconPlus, IconClose } from "@arco-design/web-react/icon";
+
+interface FileTabBarProps {
+  files: string[];
+  activeFile: string;
+  onSelectFile: (filename: string) => void;
+  onAddFile: () => void;
+  onDeleteFile: (filename: string) => void;
+  fileTabRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
+}
+
+const FileTabBar: React.FC<FileTabBarProps> = ({
+  files,
+  activeFile,
+  onSelectFile,
+  onAddFile,
+  onDeleteFile,
+  fileTabRefs,
+}) => {
+  return (
+    <div className="file-tab-bar">
+      {files.map((filename) => (
+        <div
+          key={filename}
+          ref={(el) => {
+            fileTabRefs.current[filename] = el;
+          }}
+          className={`file-tab ${activeFile === filename ? "active" : ""}`}
+          onClick={() => onSelectFile(filename)}
+        >
+          <span className="file-tab-name">{filename}</span>
+          {filename !== "index.js" && (
+            <IconClose
+              className="file-tab-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteFile(filename);
+              }}
+            />
+          )}
+        </div>
+      ))}
+      <Button
+        type="text"
+        icon={<IconPlus />}
+        size="small"
+        onClick={onAddFile}
+        className="add-file-btn"
+      />
+    </div>
+  );
+};
+
+export default FileTabBar;

@@ -105,33 +105,53 @@ function getRawData(dep) {
 }
 
 
-let deps = [];
-let blocks = [];
-let presentationalDeps = [];
+let allModules = [];
 
 compiler.hooks.compilation.tap("debug plugin", (compilation) => {
-  compilation.hooks.finishModules.tap("debug plugin", (modules) => {
-    const target = [...modules].find((module) => {
-      return module.identifier().includes("index.js");
-    });
+  compilation.hooks.optimizeChunkModules.tap("debug plugin", () => {
+    const modules = compilation.modules;
+    const moduleGraph = compilation.moduleGraph;
+    
+    allModules = [...modules].map((module) => {
+      const modulePath = module.resource || module.identifier();
+      
+      // Get dependencies with target module info
+      const deps = (module.dependencies || []).map((dep) => {
+        const rawData = getRawData(dep);
+        
+        // Use moduleGraph.getModule to get the target module
+        const targetModule = moduleGraph.getModule(dep);
+        if (targetModule) {
+          rawData.targetModule = targetModule.resource || targetModule.identifier();
+        }
+        
+        return rawData;
+      });
 
-    if (!target) return;
-
-    deps = target.dependencies?.map((dep) => {
-      return getRawData(dep);
-    }) || [];
-
-    presentationalDeps = target.presentationalDependencies?.map((dep) => {
-      return getRawData(dep);
-    }) || [];
-
-    blocks = target.blocks?.map((block) => {
-      const serializedBlock = getRawData(block);
-      serializedBlock.dependencies = block.dependencies.map((dep) => {
+      const presentationalDeps = (module.presentationalDependencies || []).map((dep) => {
         return getRawData(dep);
       });
-      return serializedBlock;
-    }) || [];
+
+      const blocks = (module.blocks || []).map((block) => {
+        const serializedBlock = getRawData(block);
+        serializedBlock.dependencies = block.dependencies.map((dep) => {
+          const rawData = getRawData(dep);
+          const targetModule = moduleGraph.getModule(dep);
+          if (targetModule) {
+            rawData.targetModule = targetModule.resource || targetModule.identifier();
+          }
+          return rawData;
+        });
+        return serializedBlock;
+      });
+
+      return {
+        path: modulePath,
+        deps,
+        presentationalDeps,
+        blocks,
+      };
+    });
   });
 });
 
@@ -144,5 +164,5 @@ compiler.compile((err, stats) => {
     throw stats.errors;
   }
 
-  console.log(JSON.stringify({ deps, presentationalDeps, blocks }));
+  console.log(JSON.stringify({ modules: allModules }));
 });
