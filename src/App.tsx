@@ -14,7 +14,7 @@ function App() {
     error: null as string | null
   });
   const [initialFiles, setInitialFiles] = useState<FileMap | null>(null);
-  const [mode, setMode] = useState<'development' | 'production'>('development');
+  const [mode, setMode] = useState<'development' | 'production'>('production');
 
   useEffect(() => {
     const hash = window.location.hash.slice(1); // remove #

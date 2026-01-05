@@ -2,8 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Layout, Button, Card, Alert, Message, Select, Modal, Input } from "@arco-design/web-react";
 import {
   IconPlayCircle,
-  IconDown,
-  IconUp,
   IconShareExternal,
   IconCode,
   IconEye,
@@ -75,13 +73,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState("");
 
-  // Dependency expansion state
-  const [expandedDeps, setExpandedDeps] = useState<Record<string, boolean>>({});
-  
   // Monaco editor
   const monaco = useMonaco();
   const editorRef = useRef<editor.IStandaloneCodeEditor>(null);
+  const jsonEditorRef = useRef<editor.IStandaloneCodeEditor>(null);
   const decorationsCollectionRef = useRef<editor.IEditorDecorationsCollection | null>(null);
+  const jsonDecorationsCollectionRef = useRef<editor.IEditorDecorationsCollection | null>(null);
   
   // Refs for line drawing
   const containerRef = useRef<HTMLDivElement>(null);
@@ -119,11 +116,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     decorationsCollectionRef.current = editor.createDecorationsCollection();
   };
 
-  const toggleExpand = (key: string) => {
-    setExpandedDeps((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  const handleJsonEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
+    jsonEditorRef.current = editor;
+    jsonDecorationsCollectionRef.current = editor.createDecorationsCollection();
   };
 
   // Get the current module (index.js by default for display)
@@ -136,6 +131,98 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const totalDepsCount = currentModule 
     ? currentModule.deps.filter(d => d.targetModule).length 
     : 0;
+
+  // Function to scroll to dependency in JSON editor
+  const scrollToDependencyInJson = useCallback((targetDep: WebpackDependency) => {
+    if (!jsonEditorRef.current || !stats || !monaco || !currentModule) return;
+
+    const model = jsonEditorRef.current.getModel();
+    if (!model) return;
+
+    // Find the module index in the stats.modules array
+    const moduleIndex = stats.modules.findIndex(m => m.path === currentModule.path);
+    if (moduleIndex === -1) return;
+
+    // Find the dependency index in the module.deps array
+    const depIndex = stats.modules[moduleIndex].deps.findIndex(d => d === targetDep); 
+    if (depIndex === -1) {
+       // If not found in deps, check presentationalDeps or blocks
+       // For now, we only handle direct deps as per the current implementation context.
+       return; 
+    }
+    
+    // Find the line number of the module's path in the JSON editor
+    const modulePathSearchString = `"path": "${currentModule.path}"`;
+    const moduleMatches = model.findMatches(modulePathSearchString, true, false, false, null, true);
+    if (moduleMatches.length === 0) return;
+    
+    const moduleStartLine = moduleMatches[0].range.startLineNumber;
+    
+    // Find the start of the "deps" array within this module
+    const depsArraySearchString = `"deps": [`;
+    let depsLine = 0;
+    for (let i = moduleStartLine; i <= model.getLineCount(); i++) {
+        const lineContent = model.getLineContent(i);
+        if (lineContent.includes(depsArraySearchString)) {
+            depsLine = i;
+            break;
+        }
+    }
+    
+    if (depsLine === 0) return;
+    
+    // Now, count '{' characters at the correct indentation level to find the Nth dependency object
+    let currentLine = depsLine + 1;
+    let objectCount = 0;
+    let lineNoToScroll = 0;
+    const targetIndentation = model.getLineFirstNonWhitespaceColumn(depsLine + 1); // Indentation of the first item in deps array
+
+    while (currentLine <= model.getLineCount()) {
+        const lineContent = model.getLineContent(currentLine);
+        const trimmedContent = lineContent.trim();
+        const currentIndentation = model.getLineFirstNonWhitespaceColumn(currentLine);
+
+        if (trimmedContent === '],' && currentIndentation < targetIndentation) { // End of deps array
+            break;
+        }
+        
+        if (trimmedContent === '{' && currentIndentation === targetIndentation) {
+            if (objectCount === depIndex) {
+                lineNoToScroll = currentLine;
+                break;
+            }
+            objectCount++;
+        }
+        currentLine++;
+    }
+    
+    if (lineNoToScroll > 0) {
+        jsonEditorRef.current.revealLineInCenter(lineNoToScroll);
+        
+        // Highlight logic: estimate the number of lines for the dependency object
+        const depLines = JSON.stringify(targetDep, null, 2).split('\n').length;
+        const exactRange = new monaco.Range(lineNoToScroll, 1, lineNoToScroll + depLines - 1, model.getLineMaxColumn(lineNoToScroll + depLines - 1));
+        
+        const decoration = {
+            range: exactRange,
+            options: {
+                isWholeLine: true,
+                className: 'json-highlight-flash', // CSS class for flashing highlight
+            }
+        };
+        
+        const collection = jsonDecorationsCollectionRef.current;
+        if (collection) {
+            collection.set([decoration]);
+            
+            // Fade out after a short delay
+            setTimeout(() => {
+                collection.clear();
+            }, 1000);
+        }
+    }
+
+  }, [stats, currentModule, monaco]);
 
   // Find which dep is at a given editor position
   const findDepAtPosition = useCallback((lineNumber: number, column: number): { dep: WebpackDependency; index: number; colorIndex: number } | null => {
@@ -195,6 +282,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         handleEditorHover(e.target.position);
       }
     });
+
+    const clickDisposable = editor.onMouseDown((e) => {
+      if (e.target.position) {
+        const result = findDepAtPosition(e.target.position.lineNumber, e.target.position.column);
+        if (result) {
+          scrollToDependencyInJson(result.dep);
+        }
+      }
+    });
     
     const leaveDisposable = editor.onMouseLeave(() => {
       if (!showAllActive) {
@@ -208,9 +304,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     
     return () => {
       disposable.dispose();
+      clickDisposable.dispose();
       leaveDisposable.dispose();
     };
-  }, [handleEditorHover, showAllActive, shouldShowStats]);
+  }, [handleEditorHover, showAllActive, shouldShowStats, findDepAtPosition, scrollToDependencyInJson]);
 
   const highlightRange = (dep: WebpackDependency | WebpackBlock, color?: string) => {
     if (!editorRef.current || !monaco || !dep.loc) return;
@@ -342,14 +439,44 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     const editorDom = editorRef.current.getDomNode();
     if (!editorDom) return;
 
-    // Get the position in the editor
+    // Get the position in the editor (start)
     const startPosition = { lineNumber: loc.start.line, column: loc.start.column + 1 };
-    const coords = editorRef.current.getScrolledVisiblePosition(startPosition);
-    if (!coords) return;
+    const startCoords = editorRef.current.getScrolledVisiblePosition(startPosition);
+    if (!startCoords) return;
+
+    // Get the position in the editor (end)
+    // If multiline, we just use the end of the first line to determine 'middle' of the start segment,
+    // or arguably just the start point if it's too complex. 
+    // For now, let's try to get the end of the range.
+    const endPosition = { 
+      lineNumber: loc.end.line, 
+      column: loc.end.column + 1 
+    };
+    
+    // If it's a multiline import, we just take the width of the first line segment or clamp to something reasonable.
+    // But usually imports are on one line or we care about the specifier. 
+    // Let's just calculate midX based on the range on the start line.
+    
+    // let endColumn = loc.end.column + 1;
+    // if (loc.end.line > loc.start.line) {
+    //    endColumn = loc.start.column + 1 + 10; 
+    // }
+
+    const effectivelyEndCoords = (loc.end.line === loc.start.line) ? 
+        editorRef.current.getScrolledVisiblePosition(endPosition) : 
+        startCoords;
 
     const editorRect = editorDom.getBoundingClientRect();
-    const startX = editorRect.left + coords.left; // Start at the left edge of the span
-    const startY = editorRect.top + coords.top + coords.height / 2;
+    
+    // Calculate middle X
+    // If we have valid end coords on the same line, use them.
+    let startX = editorRect.left + startCoords.left;
+    if (effectivelyEndCoords) {
+        startX = editorRect.left + (startCoords.left + effectivelyEndCoords.left) / 2;
+    }
+    
+    // Start Y is the top of the line
+    const startY = editorRect.top + startCoords.top; 
 
     // Find target module filename
     const targetPath = dep.targetModule;
@@ -391,12 +518,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       if (!editorDom) return;
 
       const startPosition = { lineNumber: loc.start.line, column: loc.start.column + 1 };
-      const coords = editorRef.current?.getScrolledVisiblePosition(startPosition);
-      if (!coords) return;
+      const startCoords = editorRef.current?.getScrolledVisiblePosition(startPosition);
+      if (!startCoords) return;
 
-      const editorRect = editorDom.getBoundingClientRect();
-      const startX = editorRect.left + coords.left; // Start at the left edge of the span
-      const startY = editorRect.top + coords.top + coords.height / 2;
+        // Calculate end coords for centering
+        let endColumn = loc.end.column + 1;
+        let effectiveEndCoords = null;
+        
+        if (loc.end.line === loc.start.line) {
+             effectiveEndCoords = editorRef.current?.getScrolledVisiblePosition({
+                lineNumber: loc.end.line,
+                column: endColumn
+            });
+        }
+        
+        const editorRect = editorDom.getBoundingClientRect();
+        
+        let startX = editorRect.left + startCoords.left;
+        if (effectiveEndCoords) {
+             startX = editorRect.left + (startCoords.left + effectiveEndCoords.left) / 2;
+        }
+
+       // Top of the span
+      const startY = editorRect.top + startCoords.top;
 
       const targetPath = dep.targetModule;
       const matchedFile = Object.keys(fileTabRefs.current).find(f => targetPath.includes(f));
@@ -484,7 +628,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         <Sider
           width={600}
           theme="dark"
-          style={{ padding: "20px", borderRight: "1px solid #303030" }}
+          style={{ padding: "20px", borderRight: "1px solid #30363d" }}
         >
           <FileTabBar
             files={fileList}
@@ -616,12 +760,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                         style={{
                           cursor: "pointer",
                           padding: "8px",
-                          borderBottom: "1px solid #303030",
+                          borderBottom: "1px solid #30363d",
                           borderLeft: depColor ? `3px solid ${depColor}` : undefined,
                           backgroundColor: isDepHighlightedFromEditor(idx) ? `${depColor}33` : undefined,
                           transition: 'background-color 0.15s ease',
                         }}
-                        onClick={() => toggleExpand(depKey)}
+                        onClick={() => scrollToDependencyInJson(dep)}
                       >
                         <div
                           style={{
@@ -640,35 +784,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                               → {dep.targetModule.split('/').pop()}
                             </span>
                           )}
-                          {expandedDeps[depKey] ? (
-                            <IconUp style={{ marginLeft: 8 }} />
-                          ) : (
-                            <IconDown style={{ marginLeft: 8 }} />
-                          )}
                         </div>
-                        {expandedDeps[depKey] && dep.ids && (
-                          <div
-                            style={{
-                              marginTop: "8px",
-                              padding: "8px",
-                              background: "#141414",
-                              borderRadius: "4px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontWeight: "bold",
-                                marginBottom: "4px",
-                                color: "#e6e6e6",
-                              }}
-                            >
-                              ids:
-                            </div>
-                            <div style={{ display: "flex", color: "#e6e6e6" }}>
-                              {dep.ids.join(", ")}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -686,9 +802,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                         style={{
                           cursor: "pointer",
                           padding: "8px",
-                          borderBottom: "1px solid #303030",
+                          borderBottom: "1px solid #30363d",
                         }}
-                        onClick={() => toggleExpand(depKey)}
                       >
                         <div
                           style={{
@@ -698,11 +813,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           }}
                         >
                           <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
-                          {expandedDeps[depKey] ? (
-                            <IconUp style={{ marginLeft: 8 }} />
-                          ) : (
-                            <IconDown style={{ marginLeft: 8 }} />
-                          )}
                         </div>
                       </div>
                     );
@@ -719,11 +829,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                         style={{
                           cursor: "pointer",
                           padding: "8px",
-                          borderBottom: "1px solid #303030",
+                          borderBottom: "1px solid #30363d",
                         }}
                         onMouseEnter={() => highlightRange(block)}
                         onMouseLeave={clearHighlight}
-                        onClick={() => toggleExpand(blockKey)}
                       >
                         <div
                           style={{
@@ -735,40 +844,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           <span style={{ color: "#e6e6e6" }}>
                             Async Dependency Block
                           </span>
-                          {expandedDeps[blockKey] ? (
-                            <IconUp style={{ marginLeft: 8 }} />
-                          ) : (
-                            <IconDown style={{ marginLeft: 8 }} />
-                          )}
                         </div>
-                        {expandedDeps[blockKey] && block.dependencies && (
-                          <div
-                            style={{
-                              marginTop: "8px",
-                              padding: "8px",
-                              background: "#141414",
-                              borderRadius: "4px",
-                            }}
-                          >
-                            <div
-                              style={{ fontWeight: "bold", marginBottom: "4px" }}
-                            >
-                              Dependencies:
-                            </div>
-                            {block.dependencies.map((dep, depIdx) => (
-                              <div key={depIdx} style={{ marginBottom: "4px" }}>
-                                <div style={{ color: "#e6e6e6" }}>
-                                  {dep.type} ({dep.category})
-                                </div>
-                                {dep.targetModule && (
-                                  <div style={{ fontSize: "12px", color: "#a6a6a6" }}>
-                                    → {dep.targetModule.split('/').pop()}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -804,14 +880,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 background: "#1f1f1f",
                 color: "#fff",
                 borderColor: "#303030",
+                display: "flex",
+                flexDirection: "column",
+              }}
+              bodyStyle={{
+                flex: 1,
+                overflow: "hidden",
+                padding: "10px", // Reduced padding
               }}
             >
-              <div style={{ height: "calc(100vh - 180px)" }}>
+              <div style={{ height: "100%" }}>
                 <Editor
                   height="100%"
                   defaultLanguage="json"
                   value={JSON.stringify(stats, null, 2)}
                   theme="vs-dark"
+                  onMount={handleJsonEditorDidMount}
                   options={{
                     readOnly: true,
                     minimap: { enabled: false },

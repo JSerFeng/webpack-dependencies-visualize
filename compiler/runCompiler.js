@@ -4,7 +4,7 @@ const config = require("./webpack.config");
 // Parse arguments
 const args = process.argv.slice(2);
 const modeIndex = args.indexOf('--mode');
-const mode = modeIndex !== -1 ? args[modeIndex + 1] : 'development';
+const mode = modeIndex !== -1 ? args[modeIndex + 1] : 'production';
 
 config.mode = mode;
 

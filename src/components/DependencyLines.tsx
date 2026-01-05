@@ -106,13 +106,7 @@ const DependencyLines: React.FC<DependencyLinesProps> = ({ lines, containerRef }
               strokeLinecap="round"
               markerEnd={`url(#arrowhead-${idx})`}
             />
-            {/* Start point circle */}
-            <circle
-              cx={line.startX}
-              cy={line.startY}
-              r="4"
-              fill={line.color}
-            />
+            {/* Start point circle removed as requested */}
           </g>
         );
       })}
