@@ -31,9 +31,17 @@ interface MainLayoutProps {
   setMode: (mode: 'development' | 'production') => void;
 }
 
+// Helper function to get Monaco editor language from filename
+const getLanguageFromFilename = (filename: string): string => {
+  if (filename.endsWith('.css')) return 'css';
+  if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return 'typescript';
+  return 'javascript';
+};
+
 const DEFAULT_CODE = `// Entry point - index.js
 import { foo, bar } from './utils.js';
 import 'external/lodash';
+import './style.css';
 
 console.log(foo());
 console.log(bar());
@@ -50,10 +58,34 @@ export function foo() {
 }
 `;
 
+const DEFAULT_STYLE = `/* style.css - CSS with @import and url() dependencies */
+@import './base.css';
+
+.container {
+  background: url('./base.css');
+  padding: 20px;
+}
+`;
+
+const DEFAULT_BASE_CSS = `/* base.css - imported by style.css */
+:root {
+  --primary-color: #007bff;
+  --bg-color: #1a1a2e;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-color);
+  color: white;
+}
+`;
+
 const DEFAULT_FILES: FileMap = {
   "index.js": DEFAULT_CODE,
   "utils.js": DEFAULT_UTILS,
   "lib.js": DEFAULT_LIB,
+  "style.css": DEFAULT_STYLE,
+  "base.css": DEFAULT_BASE_CSS,
 };
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -68,7 +100,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const [files, setFiles] = useState<FileMap>(() => initialFiles || DEFAULT_FILES);
   const [activeFile, setActiveFile] = useState<string>("index.js");
   const [isDirty, setIsDirty] = useState(false);
-  
+
   // New file modal state
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState("");
@@ -79,14 +111,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const jsonEditorRef = useRef<editor.IStandaloneCodeEditor>(null);
   const decorationsCollectionRef = useRef<editor.IEditorDecorationsCollection | null>(null);
   const jsonDecorationsCollectionRef = useRef<editor.IEditorDecorationsCollection | null>(null);
-  
+
   // Refs for line drawing
   const containerRef = useRef<HTMLDivElement>(null);
   const fileTabRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const depItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  
+
   // Lines state
-  const [lines, setLines] = useState<Array<{ startX: number; startY: number; endX: number; endY: number; color: string }>>([]); 
+  const [lines, setLines] = useState<Array<{ startX: number; startY: number; endX: number; endY: number; color: string }>>([]);
   const [showAllActive, setShowAllActive] = useState(false);
   const [hoveredDepIndex, setHoveredDepIndex] = useState<number | null>(null);
 
@@ -128,8 +160,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const shouldShowStats = stats && !isDirty && !status.isCompiling && !status.isInitializing;
 
   // Count total deps for color calculation
-  const totalDepsCount = currentModule 
-    ? currentModule.deps.filter(d => d.targetModule).length 
+  const totalDepsCount = currentModule
+    ? currentModule.deps.filter(d => d.targetModule).length
     : 0;
 
   // Function to scroll to dependency in JSON editor
@@ -144,33 +176,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     if (moduleIndex === -1) return;
 
     // Find the dependency index in the module.deps array
-    const depIndex = stats.modules[moduleIndex].deps.findIndex(d => d === targetDep); 
+    const depIndex = stats.modules[moduleIndex].deps.findIndex(d => d === targetDep);
     if (depIndex === -1) {
-       // If not found in deps, check presentationalDeps or blocks
-       // For now, we only handle direct deps as per the current implementation context.
-       return; 
+      // If not found in deps, check presentationalDeps or blocks
+      // For now, we only handle direct deps as per the current implementation context.
+      return;
     }
-    
+
     // Find the line number of the module's path in the JSON editor
     const modulePathSearchString = `"path": "${currentModule.path}"`;
     const moduleMatches = model.findMatches(modulePathSearchString, true, false, false, null, true);
     if (moduleMatches.length === 0) return;
-    
+
     const moduleStartLine = moduleMatches[0].range.startLineNumber;
-    
+
     // Find the start of the "deps" array within this module
     const depsArraySearchString = `"deps": [`;
     let depsLine = 0;
     for (let i = moduleStartLine; i <= model.getLineCount(); i++) {
-        const lineContent = model.getLineContent(i);
-        if (lineContent.includes(depsArraySearchString)) {
-            depsLine = i;
-            break;
-        }
+      const lineContent = model.getLineContent(i);
+      if (lineContent.includes(depsArraySearchString)) {
+        depsLine = i;
+        break;
+      }
     }
-    
+
     if (depsLine === 0) return;
-    
+
     // Now, count '{' characters at the correct indentation level to find the Nth dependency object
     let currentLine = depsLine + 1;
     let objectCount = 0;
@@ -178,48 +210,48 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     const targetIndentation = model.getLineFirstNonWhitespaceColumn(depsLine + 1); // Indentation of the first item in deps array
 
     while (currentLine <= model.getLineCount()) {
-        const lineContent = model.getLineContent(currentLine);
-        const trimmedContent = lineContent.trim();
-        const currentIndentation = model.getLineFirstNonWhitespaceColumn(currentLine);
+      const lineContent = model.getLineContent(currentLine);
+      const trimmedContent = lineContent.trim();
+      const currentIndentation = model.getLineFirstNonWhitespaceColumn(currentLine);
 
-        if (trimmedContent === '],' && currentIndentation < targetIndentation) { // End of deps array
-            break;
+      if (trimmedContent === '],' && currentIndentation < targetIndentation) { // End of deps array
+        break;
+      }
+
+      if (trimmedContent === '{' && currentIndentation === targetIndentation) {
+        if (objectCount === depIndex) {
+          lineNoToScroll = currentLine;
+          break;
         }
-        
-        if (trimmedContent === '{' && currentIndentation === targetIndentation) {
-            if (objectCount === depIndex) {
-                lineNoToScroll = currentLine;
-                break;
-            }
-            objectCount++;
-        }
-        currentLine++;
+        objectCount++;
+      }
+      currentLine++;
     }
-    
+
     if (lineNoToScroll > 0) {
-        jsonEditorRef.current.revealLineInCenter(lineNoToScroll);
-        
-        // Highlight logic: estimate the number of lines for the dependency object
-        const depLines = JSON.stringify(targetDep, null, 2).split('\n').length;
-        const exactRange = new monaco.Range(lineNoToScroll, 1, lineNoToScroll + depLines - 1, model.getLineMaxColumn(lineNoToScroll + depLines - 1));
-        
-        const decoration = {
-            range: exactRange,
-            options: {
-                isWholeLine: true,
-                className: 'json-highlight-flash', // CSS class for flashing highlight
-            }
-        };
-        
-        const collection = jsonDecorationsCollectionRef.current;
-        if (collection) {
-            collection.set([decoration]);
-            
-            // Fade out after a short delay
-            setTimeout(() => {
-                collection.clear();
-            }, 1000);
+      jsonEditorRef.current.revealLineInCenter(lineNoToScroll);
+
+      // Highlight logic: estimate the number of lines for the dependency object
+      const depLines = JSON.stringify(targetDep, null, 2).split('\n').length;
+      const exactRange = new monaco.Range(lineNoToScroll, 1, lineNoToScroll + depLines - 1, model.getLineMaxColumn(lineNoToScroll + depLines - 1));
+
+      const decoration = {
+        range: exactRange,
+        options: {
+          isWholeLine: true,
+          className: 'json-highlight-flash', // CSS class for flashing highlight
         }
+      };
+
+      const collection = jsonDecorationsCollectionRef.current;
+      if (collection) {
+        collection.set([decoration]);
+
+        // Fade out after a short delay
+        setTimeout(() => {
+          collection.clear();
+        }, 1000);
+      }
     }
 
   }, [stats, currentModule, monaco]);
@@ -227,7 +259,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // Find which dep is at a given editor position
   const findDepAtPosition = useCallback((lineNumber: number, column: number): { dep: WebpackDependency; index: number; colorIndex: number } | null => {
     if (!currentModule) return null;
-    
+
     let colorIdx = 0;
     for (let i = 0; i < currentModule.deps.length; i++) {
       const dep = currentModule.deps[i];
@@ -250,14 +282,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // Handle editor hover
   const handleEditorHover = useCallback((position: { lineNumber: number; column: number }) => {
     if (showAllActive) return;
-    
+
     const result = findDepAtPosition(position.lineNumber, position.column);
-    
+
     // Always clear previous decorations first when hovering
     if (decorationsCollectionRef.current) {
       decorationsCollectionRef.current.clear();
     }
-    
+
     if (result) {
       setHoveredDepIndex(result.index);
       highlightRange(result.dep, getDepColor(result.colorIndex, totalDepsCount));
@@ -275,7 +307,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       setHoveredDepIndex(null);
       return;
     }
-    
+
     const editor = editorRef.current;
     const disposable = editor.onMouseMove((e) => {
       if (e.target.position) {
@@ -291,7 +323,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         }
       }
     });
-    
+
     const leaveDisposable = editor.onMouseLeave(() => {
       if (!showAllActive) {
         setHoveredDepIndex(null);
@@ -301,7 +333,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         setLines([]);
       }
     });
-    
+
     return () => {
       disposable.dispose();
       clickDisposable.dispose();
@@ -329,13 +361,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     );
 
     if (decorationsCollectionRef.current) {
-      const decorations = decorationsCollectionRef.current.getRanges().length > 0 
+      const decorations = decorationsCollectionRef.current.getRanges().length > 0
         ? [...Array.from({ length: decorationsCollectionRef.current.getRanges().length })].map((_, i) => ({
-            range: decorationsCollectionRef.current!.getRanges()[i],
-            options: { className: "highlighted-code" }
-          }))
+          range: decorationsCollectionRef.current!.getRanges()[i],
+          options: { className: "highlighted-code" }
+        }))
         : [];
-      
+
       decorationsCollectionRef.current.set([
         ...decorations,
         {
@@ -434,7 +466,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     if (!dep.loc || !dep.targetModule || !editorRef.current || !monaco) return;
 
     const loc = dep.loc as { start: { line: number; column: number }; end: { line: number; column: number } };
-    
+
     // Get editor coordinates for the highlighted range
     const editorDom = editorRef.current.getDomNode();
     if (!editorDom) return;
@@ -448,39 +480,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     // If multiline, we just use the end of the first line to determine 'middle' of the start segment,
     // or arguably just the start point if it's too complex. 
     // For now, let's try to get the end of the range.
-    const endPosition = { 
-      lineNumber: loc.end.line, 
-      column: loc.end.column + 1 
+    const endPosition = {
+      lineNumber: loc.end.line,
+      column: loc.end.column + 1
     };
-    
+
     // If it's a multiline import, we just take the width of the first line segment or clamp to something reasonable.
     // But usually imports are on one line or we care about the specifier. 
     // Let's just calculate midX based on the range on the start line.
-    
+
     // let endColumn = loc.end.column + 1;
     // if (loc.end.line > loc.start.line) {
     //    endColumn = loc.start.column + 1 + 10; 
     // }
 
-    const effectivelyEndCoords = (loc.end.line === loc.start.line) ? 
-        editorRef.current.getScrolledVisiblePosition(endPosition) : 
-        startCoords;
+    const effectivelyEndCoords = (loc.end.line === loc.start.line) ?
+      editorRef.current.getScrolledVisiblePosition(endPosition) :
+      startCoords;
 
     const editorRect = editorDom.getBoundingClientRect();
-    
+
     // Calculate middle X
     // If we have valid end coords on the same line, use them.
     let startX = editorRect.left + startCoords.left;
     if (effectivelyEndCoords) {
-        startX = editorRect.left + (startCoords.left + effectivelyEndCoords.left) / 2;
+      startX = editorRect.left + (startCoords.left + effectivelyEndCoords.left) / 2;
     }
-    
+
     // Start Y is the top of the line
-    const startY = editorRect.top + startCoords.top; 
+    const startY = editorRect.top + startCoords.top;
 
     // Find target module filename
     const targetPath = dep.targetModule;
-    
+
     // Try to match with file tabs
     const matchedFile = Object.keys(fileTabRefs.current).find(f => targetPath.includes(f));
     if (matchedFile && fileTabRefs.current[matchedFile]) {
@@ -499,20 +531,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
     const depsWithTarget = currentModule.deps.filter(d => d.targetModule);
     const total = depsWithTarget.length;
-    
+
     // Clear existing
     setLines([]);
-    
+
     // Prepare all lines and highlights
     const newLines: Array<{ startX: number; startY: number; endX: number; endY: number; color: string }> = [];
     const highlightData: Array<{ dep: WebpackDependency; color: string }> = [];
-    
+
     depsWithTarget.forEach((dep, idx) => {
       if (!dep.loc || !dep.targetModule) return;
-      
+
       const color = getDepColor(idx, total);
       highlightData.push({ dep, color });
-      
+
       const loc = dep.loc as { start: { line: number; column: number }; end: { line: number; column: number } };
       const editorDom = editorRef.current?.getDomNode();
       if (!editorDom) return;
@@ -521,30 +553,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       const startCoords = editorRef.current?.getScrolledVisiblePosition(startPosition);
       if (!startCoords) return;
 
-        // Calculate end coords for centering
-        let endColumn = loc.end.column + 1;
-        let effectiveEndCoords = null;
-        
-        if (loc.end.line === loc.start.line) {
-             effectiveEndCoords = editorRef.current?.getScrolledVisiblePosition({
-                lineNumber: loc.end.line,
-                column: endColumn
-            });
-        }
-        
-        const editorRect = editorDom.getBoundingClientRect();
-        
-        let startX = editorRect.left + startCoords.left;
-        if (effectiveEndCoords) {
-             startX = editorRect.left + (startCoords.left + effectiveEndCoords.left) / 2;
-        }
+      // Calculate end coords for centering
+      let endColumn = loc.end.column + 1;
+      let effectiveEndCoords = null;
 
-       // Top of the span
+      if (loc.end.line === loc.start.line) {
+        effectiveEndCoords = editorRef.current?.getScrolledVisiblePosition({
+          lineNumber: loc.end.line,
+          column: endColumn
+        });
+      }
+
+      const editorRect = editorDom.getBoundingClientRect();
+
+      let startX = editorRect.left + startCoords.left;
+      if (effectiveEndCoords) {
+        startX = editorRect.left + (startCoords.left + effectiveEndCoords.left) / 2;
+      }
+
+      // Top of the span
       const startY = editorRect.top + startCoords.top;
 
       const targetPath = dep.targetModule;
       const matchedFile = Object.keys(fileTabRefs.current).find(f => targetPath.includes(f));
-      
+
       if (matchedFile && fileTabRefs.current[matchedFile]) {
         const tabRect = fileTabRefs.current[matchedFile]!.getBoundingClientRect();
         const endX = tabRect.left + tabRect.width / 2;
@@ -579,17 +611,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const handleCreateFile = () => {
     let filename = newFileName.trim();
     if (!filename) return;
-    
-    if (!filename.endsWith('.js')) {
+
+    // Support both .js and .css extensions
+    if (!filename.endsWith('.js') && !filename.endsWith('.css')) {
       filename += '.js';
     }
-    
+
     if (files[filename]) {
       Message.error('File already exists');
       return;
     }
 
-    setFiles(prev => ({ ...prev, [filename]: `// ${filename}\n` }));
+    const isCss = filename.endsWith('.css');
+    const defaultContent = isCss ? `/* ${filename} */\n` : `// ${filename}\n`;
+    setFiles(prev => ({ ...prev, [filename]: defaultContent }));
     setActiveFile(filename);
     setShowNewFileModal(false);
     setIsDirty(true);
@@ -597,11 +632,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   const handleDeleteFile = (filename: string) => {
     if (filename === "index.js") return;
-    
+
     const newFiles = { ...files };
     delete newFiles[filename];
     setFiles(newFiles);
-    
+
     if (activeFile === filename) {
       setActiveFile("index.js");
     }
@@ -612,8 +647,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // shouldShowStats already defined above for useEffect, just reuse or reassign here if needed
 
   // Count total deps for color distribution (used in render)
-  const totalDeps = currentModule 
-    ? currentModule.deps.filter(d => d.targetModule).length 
+  const totalDeps = currentModule
+    ? currentModule.deps.filter(d => d.targetModule).length
     : 0;
   let colorIndex = 0;
 
@@ -623,7 +658,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   return (
     <div ref={containerRef} style={{ height: "100vh", position: "relative" }}>
       <DependencyLines lines={lines} containerRef={containerRef} />
-      
+
       <Layout style={{ height: "100vh", background: "#141414" }}>
         <Sider
           width={600}
@@ -641,7 +676,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           <div style={{ height: "calc(100% - 100px)" }}>
             <Editor
               height="100%"
-              defaultLanguage="javascript"
+              language={getLanguageFromFilename(activeFile)}
               value={files[activeFile] || ""}
               onChange={handleCodeChange}
               onMount={handleEditorDidMount}
@@ -674,8 +709,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               {status.isCompiling
                 ? "Analyzing..."
                 : status.isInitializing
-                ? "Initializing..."
-                : "Analyze"}
+                  ? "Initializing..."
+                  : "Analyze"}
             </Button>
             <Button
               icon={<IconShareExternal />}
@@ -704,7 +739,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             )}
           </div>
         </Sider>
-        
+
         <Content
           style={{
             padding: "20px",
@@ -749,7 +784,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     const depKey = `dep-${idx}`;
                     const currentColorIndex = dep.targetModule ? colorIndex++ : -1;
                     const depColor = dep.targetModule ? getDepColor(currentColorIndex, totalDeps) : undefined;
-                    
+
                     return (
                       <div
                         key={depKey}
@@ -776,8 +811,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                         >
                           <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
                           {dep.targetModule && (
-                            <span style={{ 
-                              color: depColor, 
+                            <span style={{
+                              color: depColor,
                               fontSize: "12px",
                               marginLeft: "8px",
                             }}>
@@ -789,7 +824,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     );
                   })}
                 </Card>
-                
+
                 <Card title="Presentational Dependencies">
                   {currentModule.presentationalDeps.map((dep, idx) => {
                     const depKey = `pres-${idx}`;
@@ -818,7 +853,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     );
                   })}
                 </Card>
-                
+
                 <Card title="Blocks">
                   {currentModule.blocks.map((block, idx) => {
                     const blockKey = `block-${idx}`;
@@ -855,7 +890,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             )}
           </div>
         </Content>
-        
+
         <Sider
           width={400}
           theme="dark"
@@ -910,7 +945,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           )}
         </Sider>
       </Layout>
-      
+
       <Modal
         title="Create New File"
         visible={showNewFileModal}
