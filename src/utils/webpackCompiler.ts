@@ -1,4 +1,4 @@
-import { initWebContainer, writeFile, mkdir } from "./webContainer";
+import { initWebContainer, mkdir, writeFile } from './webContainer';
 
 export type WebpackDependency = {
   targetModule?: string;
@@ -11,30 +11,30 @@ export type WebpackBlock = {
 };
 
 export type SerializedProvidedExports =
-  | { kind: "unknown" }
-  | { kind: "dynamic" }
-  | { kind: "list"; exports: string[] };
+  | { kind: 'unknown' }
+  | { kind: 'dynamic' }
+  | { kind: 'list'; exports: string[] };
 
 export type SerializedUsedExports =
-  | { kind: "unknown" }
-  | { kind: "namespace" }
-  | { kind: "unused" }
-  | { kind: "list"; exports: string[] };
+  | { kind: 'unknown' }
+  | { kind: 'namespace' }
+  | { kind: 'unused' }
+  | { kind: 'list'; exports: string[] };
 
 export type SerializedUsageState =
-  | "unused"
-  | "only-properties-used"
-  | "no-info"
-  | "unknown"
-  | "used";
+  | 'unused'
+  | 'only-properties-used'
+  | 'no-info'
+  | 'unknown'
+  | 'used';
 
 export type SerializedProvidedState =
-  | "no-info"
-  | "maybe-provided"
-  | "provided"
-  | "not-provided";
+  | 'no-info'
+  | 'maybe-provided'
+  | 'provided'
+  | 'not-provided';
 
-export type ExportOwnership = "owned" | "redirected";
+export type ExportOwnership = 'owned' | 'redirected';
 
 export type SerializedExportTarget = {
   modulePath: string;
@@ -94,13 +94,13 @@ export type FileMap = { [filename: string]: string };
 
 export const compileCode = async (
   files: FileMap,
-  mode: 'development' | 'production' = 'development'
+  mode: 'development' | 'production' = 'development',
 ): Promise<CompileResult> => {
   try {
     const container = await initWebContainer();
 
     // Ensure /src directory exists
-    await mkdir("/src");
+    await mkdir('/src');
 
     // Write all files to WebContainer
     for (const [filename, content] of Object.entries(files)) {
@@ -109,7 +109,11 @@ export const compileCode = async (
     }
 
     // Run webpack
-    const webpackProcess = await container.spawn("node", ["runCompiler.js", "--mode", mode]);
+    const webpackProcess = await container.spawn('node', [
+      'runCompiler.js',
+      '--mode',
+      mode,
+    ]);
     const webpackOutput = await webpackProcess.output;
     const exitCode = await webpackProcess.exit;
 

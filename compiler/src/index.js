@@ -1,3 +1,3 @@
-import v from 'value'
+import v from 'value';
 
 v;

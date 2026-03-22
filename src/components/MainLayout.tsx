@@ -1,18 +1,33 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Layout, Button, Card, Alert, Message, Select, Modal, Input } from "@arco-design/web-react";
 import {
-  IconPlayCircle,
-  IconShareExternal,
+  Alert,
+  Button,
+  Card,
+  Input,
+  Layout,
+  Message,
+  Modal,
+  Select,
+} from '@arco-design/web-react';
+import {
   IconCode,
   IconEye,
-} from "@arco-design/web-react/icon";
-import Editor, { useMonaco } from "@monaco-editor/react";
-import type { WebpackModule, WebpackDependency, WebpackBlock, FileMap } from "../utils/webpackCompiler";
-import type { editor } from "monaco-editor";
-import FileTabBar from "./FileTabBar";
-import DependencyLines, { getDepColor } from "./DependencyLines";
-import ExportsInfoView from "./ExportsInfoView";
-import styles from "./MainLayout.module.css";
+  IconPlayCircle,
+  IconShareExternal,
+} from '@arco-design/web-react/icon';
+import Editor, { useMonaco } from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type {
+  FileMap,
+  WebpackBlock,
+  WebpackDependency,
+  WebpackModule,
+} from '../utils/webpackCompiler';
+import DependencyLines, { getDepColor } from './DependencyLines';
+import ExportsInfoView from './ExportsInfoView';
+import FileTabBar from './FileTabBar';
+import styles from './MainLayout.module.css';
 
 const { Sider, Content } = Layout;
 
@@ -36,7 +51,8 @@ interface MainLayoutProps {
 // Helper function to get Monaco editor language from filename
 const getLanguageFromFilename = (filename: string): string => {
   if (filename.endsWith('.css')) return 'css';
-  if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return 'typescript';
+  if (filename.endsWith('.ts') || filename.endsWith('.tsx'))
+    return 'typescript';
   return 'javascript';
 };
 
@@ -93,12 +109,12 @@ body {
 `;
 
 const DEFAULT_FILES: FileMap = {
-  "index.js": DEFAULT_CODE,
-  "utils.js": DEFAULT_UTILS,
-  "lib.js": DEFAULT_LIB,
-  "side.js": DEFAULT_SIDE,
-  "style.css": DEFAULT_STYLE,
-  "base.css": DEFAULT_BASE_CSS,
+  'index.js': DEFAULT_CODE,
+  'utils.js': DEFAULT_UTILS,
+  'lib.js': DEFAULT_LIB,
+  'side.js': DEFAULT_SIDE,
+  'style.css': DEFAULT_STYLE,
+  'base.css': DEFAULT_BASE_CSS,
 };
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -110,28 +126,42 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   setMode,
 }) => {
   // Multi-file state
-  const [files, setFiles] = useState<FileMap>(() => initialFiles || DEFAULT_FILES);
-  const [activeFile, setActiveFile] = useState<string>("index.js");
+  const [files, setFiles] = useState<FileMap>(
+    () => initialFiles || DEFAULT_FILES,
+  );
+  const [activeFile, setActiveFile] = useState<string>('index.js');
   const [isDirty, setIsDirty] = useState(false);
 
   // New file modal state
   const [showNewFileModal, setShowNewFileModal] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-  const [resultView, setResultView] = useState<"dependencies" | "exports">("dependencies");
+  const [newFileName, setNewFileName] = useState('');
+  const [resultView, setResultView] = useState<'dependencies' | 'exports'>(
+    'dependencies',
+  );
 
   // Monaco editor
   const monaco = useMonaco();
   const editorRef = useRef<editor.IStandaloneCodeEditor>(null);
   const jsonEditorRef = useRef<editor.IStandaloneCodeEditor>(null);
-  const decorationsCollectionRef = useRef<editor.IEditorDecorationsCollection | null>(null);
-  const jsonDecorationsCollectionRef = useRef<editor.IEditorDecorationsCollection | null>(null);
+  const decorationsCollectionRef =
+    useRef<editor.IEditorDecorationsCollection | null>(null);
+  const jsonDecorationsCollectionRef =
+    useRef<editor.IEditorDecorationsCollection | null>(null);
 
   // Refs for line drawing
   const containerRef = useRef<HTMLDivElement>(null);
   const fileTabRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Lines state
-  const [lines, setLines] = useState<Array<{ startX: number; startY: number; endX: number; endY: number; color: string }>>([]);
+  const [lines, setLines] = useState<
+    Array<{
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
+      color: string;
+    }>
+  >([]);
   const [showAllActive, setShowAllActive] = useState(false);
   const [hoveredDepIndex, setHoveredDepIndex] = useState<number | null>(null);
 
@@ -142,7 +172,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   }, [initialFiles]);
 
   useEffect(() => {
-    if (resultView === "dependencies") return;
+    if (resultView === 'dependencies') return;
     setHoveredDepIndex(null);
     setLines([]);
     setShowAllActive(false);
@@ -152,12 +182,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   }, [resultView]);
 
   // Clear stats when code changes
-  const handleCodeChange = useCallback((value: string | undefined) => {
-    const newValue = value || "";
-    setFiles(prev => ({ ...prev, [activeFile]: newValue }));
-    setIsDirty(true);
-    setLines([]); // Clear lines when editing
-  }, [activeFile]);
+  const handleCodeChange = useCallback(
+    (value: string | undefined) => {
+      const newValue = value || '';
+      setFiles((prev) => ({ ...prev, [activeFile]: newValue }));
+      setIsDirty(true);
+      setLines([]); // Clear lines when editing
+    },
+    [activeFile],
+  );
 
   // When dirty, we hide the stats panel
   useEffect(() => {
@@ -177,156 +210,206 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   // Get the current module (index.js by default for display)
-  const currentModule = stats?.modules?.find(m => m.path.includes(activeFile)) || stats?.modules?.find(m => m.path.includes("index.js"));
+  const currentModule =
+    stats?.modules?.find((m) => m.path.includes(activeFile)) ||
+    stats?.modules?.find((m) => m.path.includes('index.js'));
 
   // Need this early for useEffect
-  const shouldShowStats = stats && !isDirty && !status.isCompiling && !status.isInitializing;
+  const shouldShowStats =
+    stats && !isDirty && !status.isCompiling && !status.isInitializing;
 
   // Count total deps for color calculation
   const totalDepsCount = currentModule
-    ? currentModule.deps.filter(d => d.targetModule).length
+    ? currentModule.deps.filter((d) => d.targetModule).length
     : 0;
 
   // Function to scroll to dependency in JSON editor
-  const scrollToDependencyInJson = useCallback((targetDep: WebpackDependency) => {
-    if (!jsonEditorRef.current || !stats || !monaco || !currentModule) return;
+  const scrollToDependencyInJson = useCallback(
+    (targetDep: WebpackDependency) => {
+      if (!jsonEditorRef.current || !stats || !monaco || !currentModule) return;
 
-    const model = jsonEditorRef.current.getModel();
-    if (!model) return;
+      const model = jsonEditorRef.current.getModel();
+      if (!model) return;
 
-    // Find the module index in the stats.modules array
-    const moduleIndex = stats.modules.findIndex(m => m.path === currentModule.path);
-    if (moduleIndex === -1) return;
+      // Find the module index in the stats.modules array
+      const moduleIndex = stats.modules.findIndex(
+        (m) => m.path === currentModule.path,
+      );
+      if (moduleIndex === -1) return;
 
-    // Find the dependency index in the module.deps array
-    const depIndex = stats.modules[moduleIndex].deps.findIndex(d => d === targetDep);
-    if (depIndex === -1) {
-      // If not found in deps, check presentationalDeps or blocks
-      // For now, we only handle direct deps as per the current implementation context.
-      return;
-    }
-
-    // Find the line number of the module's path in the JSON editor
-    const modulePathSearchString = `"path": "${currentModule.path}"`;
-    const moduleMatches = model.findMatches(modulePathSearchString, true, false, false, null, true);
-    if (moduleMatches.length === 0) return;
-
-    const moduleStartLine = moduleMatches[0].range.startLineNumber;
-
-    // Find the start of the "deps" array within this module
-    const depsArraySearchString = `"deps": [`;
-    let depsLine = 0;
-    for (let i = moduleStartLine; i <= model.getLineCount(); i++) {
-      const lineContent = model.getLineContent(i);
-      if (lineContent.includes(depsArraySearchString)) {
-        depsLine = i;
-        break;
-      }
-    }
-
-    if (depsLine === 0) return;
-
-    // Now, count '{' characters at the correct indentation level to find the Nth dependency object
-    let currentLine = depsLine + 1;
-    let objectCount = 0;
-    let lineNoToScroll = 0;
-    const targetIndentation = model.getLineFirstNonWhitespaceColumn(depsLine + 1); // Indentation of the first item in deps array
-
-    while (currentLine <= model.getLineCount()) {
-      const lineContent = model.getLineContent(currentLine);
-      const trimmedContent = lineContent.trim();
-      const currentIndentation = model.getLineFirstNonWhitespaceColumn(currentLine);
-
-      if (trimmedContent === '],' && currentIndentation < targetIndentation) { // End of deps array
-        break;
+      // Find the dependency index in the module.deps array
+      const depIndex = stats.modules[moduleIndex].deps.findIndex(
+        (d) => d === targetDep,
+      );
+      if (depIndex === -1) {
+        // If not found in deps, check presentationalDeps or blocks
+        // For now, we only handle direct deps as per the current implementation context.
+        return;
       }
 
-      if (trimmedContent === '{' && currentIndentation === targetIndentation) {
-        if (objectCount === depIndex) {
-          lineNoToScroll = currentLine;
+      // Find the line number of the module's path in the JSON editor
+      const modulePathSearchString = `"path": "${currentModule.path}"`;
+      const moduleMatches = model.findMatches(
+        modulePathSearchString,
+        true,
+        false,
+        false,
+        null,
+        true,
+      );
+      if (moduleMatches.length === 0) return;
+
+      const moduleStartLine = moduleMatches[0].range.startLineNumber;
+
+      // Find the start of the "deps" array within this module
+      const depsArraySearchString = `"deps": [`;
+      let depsLine = 0;
+      for (let i = moduleStartLine; i <= model.getLineCount(); i++) {
+        const lineContent = model.getLineContent(i);
+        if (lineContent.includes(depsArraySearchString)) {
+          depsLine = i;
           break;
         }
-        objectCount++;
       }
-      currentLine++;
-    }
 
-    if (lineNoToScroll > 0) {
-      jsonEditorRef.current.revealLineInCenter(lineNoToScroll);
+      if (depsLine === 0) return;
 
-      // Highlight logic: estimate the number of lines for the dependency object
-      const depLines = JSON.stringify(targetDep, null, 2).split('\n').length;
-      const exactRange = new monaco.Range(lineNoToScroll, 1, lineNoToScroll + depLines - 1, model.getLineMaxColumn(lineNoToScroll + depLines - 1));
+      // Now, count '{' characters at the correct indentation level to find the Nth dependency object
+      let currentLine = depsLine + 1;
+      let objectCount = 0;
+      let lineNoToScroll = 0;
+      const targetIndentation = model.getLineFirstNonWhitespaceColumn(
+        depsLine + 1,
+      ); // Indentation of the first item in deps array
 
-      const decoration = {
-        range: exactRange,
-        options: {
-          isWholeLine: true,
-          className: 'json-highlight-flash', // CSS class for flashing highlight
+      while (currentLine <= model.getLineCount()) {
+        const lineContent = model.getLineContent(currentLine);
+        const trimmedContent = lineContent.trim();
+        const currentIndentation =
+          model.getLineFirstNonWhitespaceColumn(currentLine);
+
+        if (trimmedContent === '],' && currentIndentation < targetIndentation) {
+          // End of deps array
+          break;
         }
-      };
 
-      const collection = jsonDecorationsCollectionRef.current;
-      if (collection) {
-        collection.set([decoration]);
-
-        // Fade out after a short delay
-        setTimeout(() => {
-          collection.clear();
-        }, 1000);
+        if (
+          trimmedContent === '{' &&
+          currentIndentation === targetIndentation
+        ) {
+          if (objectCount === depIndex) {
+            lineNoToScroll = currentLine;
+            break;
+          }
+          objectCount++;
+        }
+        currentLine++;
       }
-    }
 
-  }, [stats, currentModule, monaco]);
+      if (lineNoToScroll > 0) {
+        jsonEditorRef.current.revealLineInCenter(lineNoToScroll);
+
+        // Highlight logic: estimate the number of lines for the dependency object
+        const depLines = JSON.stringify(targetDep, null, 2).split('\n').length;
+        const exactRange = new monaco.Range(
+          lineNoToScroll,
+          1,
+          lineNoToScroll + depLines - 1,
+          model.getLineMaxColumn(lineNoToScroll + depLines - 1),
+        );
+
+        const decoration = {
+          range: exactRange,
+          options: {
+            isWholeLine: true,
+            className: 'json-highlight-flash', // CSS class for flashing highlight
+          },
+        };
+
+        const collection = jsonDecorationsCollectionRef.current;
+        if (collection) {
+          collection.set([decoration]);
+
+          // Fade out after a short delay
+          setTimeout(() => {
+            collection.clear();
+          }, 1000);
+        }
+      }
+    },
+    [stats, currentModule, monaco],
+  );
 
   // Find which dep is at a given editor position
-  const findDepAtPosition = useCallback((lineNumber: number, column: number): { dep: WebpackDependency; index: number; colorIndex: number } | null => {
-    if (!currentModule) return null;
+  const findDepAtPosition = useCallback(
+    (
+      lineNumber: number,
+      column: number,
+    ): { dep: WebpackDependency; index: number; colorIndex: number } | null => {
+      if (!currentModule) return null;
 
-    let colorIdx = 0;
-    for (let i = 0; i < currentModule.deps.length; i++) {
-      const dep = currentModule.deps[i];
-      if (dep.targetModule) {
-        if (dep.loc && "start" in dep.loc && "end" in dep.loc) {
-          const loc = dep.loc as { start: { line: number; column: number }; end: { line: number; column: number } };
-          if (
-            (lineNumber > loc.start.line || (lineNumber === loc.start.line && column >= loc.start.column)) &&
-            (lineNumber < loc.end.line || (lineNumber === loc.end.line && column <= loc.end.column + 1))
-          ) {
-            return { dep, index: i, colorIndex: colorIdx };
+      let colorIdx = 0;
+      for (let i = 0; i < currentModule.deps.length; i++) {
+        const dep = currentModule.deps[i];
+        if (dep.targetModule) {
+          if (dep.loc && 'start' in dep.loc && 'end' in dep.loc) {
+            const loc = dep.loc as {
+              start: { line: number; column: number };
+              end: { line: number; column: number };
+            };
+            if (
+              (lineNumber > loc.start.line ||
+                (lineNumber === loc.start.line &&
+                  column >= loc.start.column)) &&
+              (lineNumber < loc.end.line ||
+                (lineNumber === loc.end.line && column <= loc.end.column + 1))
+            ) {
+              return { dep, index: i, colorIndex: colorIdx };
+            }
           }
+          colorIdx++;
         }
-        colorIdx++;
       }
-    }
-    return null;
-  }, [currentModule]);
+      return null;
+    },
+    [currentModule],
+  );
 
   // Handle editor hover
-  const handleEditorHover = useCallback((position: { lineNumber: number; column: number }) => {
-    if (showAllActive) return;
+  const handleEditorHover = useCallback(
+    (position: { lineNumber: number; column: number }) => {
+      if (showAllActive) return;
 
-    const result = findDepAtPosition(position.lineNumber, position.column);
+      const result = findDepAtPosition(position.lineNumber, position.column);
 
-    // Always clear previous decorations first when hovering
-    if (decorationsCollectionRef.current) {
-      decorationsCollectionRef.current.clear();
-    }
+      // Always clear previous decorations first when hovering
+      if (decorationsCollectionRef.current) {
+        decorationsCollectionRef.current.clear();
+      }
 
-    if (result) {
-      setHoveredDepIndex(result.index);
-      highlightRange(result.dep, getDepColor(result.colorIndex, totalDepsCount));
-      setLines([]);
-      drawLineToModule(result.dep, result.colorIndex, totalDepsCount);
-    } else {
-      setHoveredDepIndex(null);
-      setLines([]);
-    }
-  }, [showAllActive, findDepAtPosition, totalDepsCount]);
+      if (result) {
+        setHoveredDepIndex(result.index);
+        highlightRange(
+          result.dep,
+          getDepColor(result.colorIndex, totalDepsCount),
+        );
+        setLines([]);
+        drawLineToModule(result.dep, result.colorIndex, totalDepsCount);
+      } else {
+        setHoveredDepIndex(null);
+        setLines([]);
+      }
+    },
+    [showAllActive, findDepAtPosition, totalDepsCount],
+  );
 
   // Add mouse move listener to editor
   useEffect(() => {
-    if (!editorRef.current || !shouldShowStats || resultView !== "dependencies") {
+    if (
+      !editorRef.current ||
+      !shouldShowStats ||
+      resultView !== 'dependencies'
+    ) {
       setHoveredDepIndex(null);
       return;
     }
@@ -340,7 +423,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
     const clickDisposable = editor.onMouseDown((e) => {
       if (e.target.position) {
-        const result = findDepAtPosition(e.target.position.lineNumber, e.target.position.column);
+        const result = findDepAtPosition(
+          e.target.position.lineNumber,
+          e.target.position.column,
+        );
         if (result) {
           scrollToDependencyInJson(result.dep);
         }
@@ -371,10 +457,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     resultView,
   ]);
 
-  const highlightRange = (dep: WebpackDependency | WebpackBlock, color?: string) => {
+  const highlightRange = (
+    dep: WebpackDependency | WebpackBlock,
+    color?: string,
+  ) => {
     if (!editorRef.current || !monaco || !dep.loc) return;
 
-    if (!("start" in dep.loc) || !("end" in dep.loc)) {
+    if (!('start' in dep.loc) || !('end' in dep.loc)) {
       return;
     }
 
@@ -387,23 +476,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       start.line,
       start.column + 1,
       end.line,
-      end.column + 1
+      end.column + 1,
     );
 
     if (decorationsCollectionRef.current) {
-      const decorations = decorationsCollectionRef.current.getRanges().length > 0
-        ? [...Array.from({ length: decorationsCollectionRef.current.getRanges().length })].map((_, i) => ({
-          range: decorationsCollectionRef.current!.getRanges()[i],
-          options: { className: "highlighted-code" }
-        }))
-        : [];
+      const decorations =
+        decorationsCollectionRef.current.getRanges().length > 0
+          ? [
+              ...Array.from({
+                length: decorationsCollectionRef.current.getRanges().length,
+              }),
+            ].map((_, i) => ({
+              range: decorationsCollectionRef.current!.getRanges()[i],
+              options: { className: 'highlighted-code' },
+            }))
+          : [];
 
       decorationsCollectionRef.current.set([
         ...decorations,
         {
           range,
           options: {
-            className: color ? `dep-highlight-${color.replace(/[^a-zA-Z0-9]/g, '')}` : "highlighted-code",
+            className: color
+              ? `dep-highlight-${color.replace(/[^a-zA-Z0-9]/g, '')}`
+              : 'highlighted-code',
           },
         },
       ]);
@@ -428,50 +524,56 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   // Highlight multiple deps with their colors
-  const highlightMultipleDeps = useCallback((deps: Array<{ dep: WebpackDependency; color: string }>) => {
-    if (!editorRef.current || !monaco) return;
-    if (!decorationsCollectionRef.current) return;
+  const highlightMultipleDeps = useCallback(
+    (deps: Array<{ dep: WebpackDependency; color: string }>) => {
+      if (!editorRef.current || !monaco) return;
+      if (!decorationsCollectionRef.current) return;
 
-    const decorations = deps.map(({ dep, color }) => {
-      if (!dep.loc || !("start" in dep.loc) || !("end" in dep.loc)) return null;
+      const decorations = deps
+        .map(({ dep, color }) => {
+          if (!dep.loc || !('start' in dep.loc) || !('end' in dep.loc))
+            return null;
 
-      const { start, end } = dep.loc as {
-        start: { line: number; column: number };
-        end: { line: number; column: number };
-      };
+          const { start, end } = dep.loc as {
+            start: { line: number; column: number };
+            end: { line: number; column: number };
+          };
 
-      const range = new monaco.Range(
-        start.line,
-        start.column + 1,
-        end.line,
-        end.column + 1
-      );
+          const range = new monaco.Range(
+            start.line,
+            start.column + 1,
+            end.line,
+            end.column + 1,
+          );
 
-      // Inject dynamic CSS for colored borders
-      const styleId = `dep-style-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
-      if (!document.getElementById(styleId)) {
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.textContent = `
+          // Inject dynamic CSS for colored borders
+          const styleId = `dep-style-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+          if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
           .dep-highlight-${color.replace(/[^a-zA-Z0-9]/g, '')} {
             border: 1px solid ${color} !important;
             background-color: ${color}22 !important;
             border-radius: 2px;
           }
         `;
-        document.head.appendChild(style);
-      }
+            document.head.appendChild(style);
+          }
 
-      return {
-        range,
-        options: {
-          className: `dep-highlight-${color.replace(/[^a-zA-Z0-9]/g, '')}`,
-        },
-      };
-    }).filter(Boolean) as Array<{ range: any; options: any }>;
+          return {
+            range,
+            options: {
+              className: `dep-highlight-${color.replace(/[^a-zA-Z0-9]/g, '')}`,
+            },
+          };
+        })
+        .filter(Boolean) as Array<{ range: any; options: any }>;
 
-    decorationsCollectionRef.current.set(decorations);
-  }, [monaco]);
+      decorationsCollectionRef.current.set(decorations);
+    },
+    [monaco],
+  );
 
   const clearHighlight = () => {
     if (showAllActive) return; // Don't clear if showing all
@@ -492,81 +594,103 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   // Calculate and draw line from source highlight to target module tab
-  const drawLineToModule = useCallback((dep: WebpackDependency, colorIndex: number, totalDeps: number) => {
-    if (!dep.loc || !dep.targetModule || !editorRef.current || !monaco) return;
+  const drawLineToModule = useCallback(
+    (dep: WebpackDependency, colorIndex: number, totalDeps: number) => {
+      if (!dep.loc || !dep.targetModule || !editorRef.current || !monaco)
+        return;
 
-    const loc = dep.loc as { start: { line: number; column: number }; end: { line: number; column: number } };
+      const loc = dep.loc as {
+        start: { line: number; column: number };
+        end: { line: number; column: number };
+      };
 
-    // Get editor coordinates for the highlighted range
-    const editorDom = editorRef.current.getDomNode();
-    if (!editorDom) return;
+      // Get editor coordinates for the highlighted range
+      const editorDom = editorRef.current.getDomNode();
+      if (!editorDom) return;
 
-    // Get the position in the editor (start)
-    const startPosition = { lineNumber: loc.start.line, column: loc.start.column + 1 };
-    const startCoords = editorRef.current.getScrolledVisiblePosition(startPosition);
-    if (!startCoords) return;
+      // Get the position in the editor (start)
+      const startPosition = {
+        lineNumber: loc.start.line,
+        column: loc.start.column + 1,
+      };
+      const startCoords =
+        editorRef.current.getScrolledVisiblePosition(startPosition);
+      if (!startCoords) return;
 
-    // Get the position in the editor (end)
-    // If multiline, we just use the end of the first line to determine 'middle' of the start segment,
-    // or arguably just the start point if it's too complex. 
-    // For now, let's try to get the end of the range.
-    const endPosition = {
-      lineNumber: loc.end.line,
-      column: loc.end.column + 1
-    };
+      // Get the position in the editor (end)
+      // If multiline, we just use the end of the first line to determine 'middle' of the start segment,
+      // or arguably just the start point if it's too complex.
+      // For now, let's try to get the end of the range.
+      const endPosition = {
+        lineNumber: loc.end.line,
+        column: loc.end.column + 1,
+      };
 
-    // If it's a multiline import, we just take the width of the first line segment or clamp to something reasonable.
-    // But usually imports are on one line or we care about the specifier. 
-    // Let's just calculate midX based on the range on the start line.
+      // If it's a multiline import, we just take the width of the first line segment or clamp to something reasonable.
+      // But usually imports are on one line or we care about the specifier.
+      // Let's just calculate midX based on the range on the start line.
 
-    // let endColumn = loc.end.column + 1;
-    // if (loc.end.line > loc.start.line) {
-    //    endColumn = loc.start.column + 1 + 10; 
-    // }
+      // let endColumn = loc.end.column + 1;
+      // if (loc.end.line > loc.start.line) {
+      //    endColumn = loc.start.column + 1 + 10;
+      // }
 
-    const effectivelyEndCoords = (loc.end.line === loc.start.line) ?
-      editorRef.current.getScrolledVisiblePosition(endPosition) :
-      startCoords;
+      const effectivelyEndCoords =
+        loc.end.line === loc.start.line
+          ? editorRef.current.getScrolledVisiblePosition(endPosition)
+          : startCoords;
 
-    const editorRect = editorDom.getBoundingClientRect();
+      const editorRect = editorDom.getBoundingClientRect();
 
-    // Calculate middle X
-    // If we have valid end coords on the same line, use them.
-    let startX = editorRect.left + startCoords.left;
-    if (effectivelyEndCoords) {
-      startX = editorRect.left + (startCoords.left + effectivelyEndCoords.left) / 2;
-    }
+      // Calculate middle X
+      // If we have valid end coords on the same line, use them.
+      let startX = editorRect.left + startCoords.left;
+      if (effectivelyEndCoords) {
+        startX =
+          editorRect.left + (startCoords.left + effectivelyEndCoords.left) / 2;
+      }
 
-    // Start Y is the top of the line
-    const startY = editorRect.top + startCoords.top;
+      // Start Y is the top of the line
+      const startY = editorRect.top + startCoords.top;
 
-    // Find target module filename
-    const targetPath = dep.targetModule;
+      // Find target module filename
+      const targetPath = dep.targetModule;
 
-    // Try to match with file tabs
-    const matchedFile = Object.keys(fileTabRefs.current).find(f => targetPath.includes(f));
-    if (matchedFile && fileTabRefs.current[matchedFile]) {
-      const tabRect = fileTabRefs.current[matchedFile]!.getBoundingClientRect();
-      const endX = tabRect.left + tabRect.width / 2;
-      const endY = tabRect.top + tabRect.height / 2;
-      const color = getDepColor(colorIndex, totalDeps);
+      // Try to match with file tabs
+      const matchedFile = Object.keys(fileTabRefs.current).find((f) =>
+        targetPath.includes(f),
+      );
+      if (matchedFile && fileTabRefs.current[matchedFile]) {
+        const tabRect =
+          fileTabRefs.current[matchedFile]!.getBoundingClientRect();
+        const endX = tabRect.left + tabRect.width / 2;
+        const endY = tabRect.top + tabRect.height / 2;
+        const color = getDepColor(colorIndex, totalDeps);
 
-      setLines(prev => [...prev, { startX, startY, endX, endY, color }]);
-    }
-  }, [monaco]);
+        setLines((prev) => [...prev, { startX, startY, endX, endY, color }]);
+      }
+    },
+    [monaco],
+  );
 
   // Show all dependency lines at once
   const showAllDependencyLines = useCallback(() => {
     if (!currentModule || !editorRef.current || !monaco) return;
 
-    const depsWithTarget = currentModule.deps.filter(d => d.targetModule);
+    const depsWithTarget = currentModule.deps.filter((d) => d.targetModule);
     const total = depsWithTarget.length;
 
     // Clear existing
     setLines([]);
 
     // Prepare all lines and highlights
-    const newLines: Array<{ startX: number; startY: number; endX: number; endY: number; color: string }> = [];
+    const newLines: Array<{
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
+      color: string;
+    }> = [];
     const highlightData: Array<{ dep: WebpackDependency; color: string }> = [];
 
     depsWithTarget.forEach((dep, idx) => {
@@ -575,22 +699,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       const color = getDepColor(idx, total);
       highlightData.push({ dep, color });
 
-      const loc = dep.loc as { start: { line: number; column: number }; end: { line: number; column: number } };
+      const loc = dep.loc as {
+        start: { line: number; column: number };
+        end: { line: number; column: number };
+      };
       const editorDom = editorRef.current?.getDomNode();
       if (!editorDom) return;
 
-      const startPosition = { lineNumber: loc.start.line, column: loc.start.column + 1 };
-      const startCoords = editorRef.current?.getScrolledVisiblePosition(startPosition);
+      const startPosition = {
+        lineNumber: loc.start.line,
+        column: loc.start.column + 1,
+      };
+      const startCoords =
+        editorRef.current?.getScrolledVisiblePosition(startPosition);
       if (!startCoords) return;
 
       // Calculate end coords for centering
-      let endColumn = loc.end.column + 1;
+      const endColumn = loc.end.column + 1;
       let effectiveEndCoords = null;
 
       if (loc.end.line === loc.start.line) {
         effectiveEndCoords = editorRef.current?.getScrolledVisiblePosition({
           lineNumber: loc.end.line,
-          column: endColumn
+          column: endColumn,
         });
       }
 
@@ -598,17 +729,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
       let startX = editorRect.left + startCoords.left;
       if (effectiveEndCoords) {
-        startX = editorRect.left + (startCoords.left + effectiveEndCoords.left) / 2;
+        startX =
+          editorRect.left + (startCoords.left + effectiveEndCoords.left) / 2;
       }
 
       // Top of the span
       const startY = editorRect.top + startCoords.top;
 
       const targetPath = dep.targetModule;
-      const matchedFile = Object.keys(fileTabRefs.current).find(f => targetPath.includes(f));
+      const matchedFile = Object.keys(fileTabRefs.current).find((f) =>
+        targetPath.includes(f),
+      );
 
       if (matchedFile && fileTabRefs.current[matchedFile]) {
-        const tabRect = fileTabRefs.current[matchedFile]!.getBoundingClientRect();
+        const tabRect =
+          fileTabRefs.current[matchedFile]!.getBoundingClientRect();
         const endX = tabRect.left + tabRect.width / 2;
         const endY = tabRect.top + tabRect.height / 2;
         newLines.push({ startX, startY, endX, endY, color });
@@ -620,7 +755,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     setShowAllActive(true);
   }, [currentModule, monaco, highlightMultipleDeps]);
 
-  const handleDepHover = (dep: WebpackDependency, colorIndex: number, totalDeps: number) => {
+  const handleDepHover = (
+    dep: WebpackDependency,
+    colorIndex: number,
+    totalDeps: number,
+  ) => {
     if (showAllActive) return; // Don't change if showing all
     highlightRange(dep, getDepColor(colorIndex, totalDeps));
     setLines([]); // Clear previous lines
@@ -635,7 +774,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // File management
   const handleAddFile = () => {
     setShowNewFileModal(true);
-    setNewFileName("");
+    setNewFileName('');
   };
 
   const handleCreateFile = () => {
@@ -654,21 +793,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
     const isCss = filename.endsWith('.css');
     const defaultContent = isCss ? `/* ${filename} */\n` : `// ${filename}\n`;
-    setFiles(prev => ({ ...prev, [filename]: defaultContent }));
+    setFiles((prev) => ({ ...prev, [filename]: defaultContent }));
     setActiveFile(filename);
     setShowNewFileModal(false);
     setIsDirty(true);
   };
 
   const handleDeleteFile = (filename: string) => {
-    if (filename === "index.js") return;
+    if (filename === 'index.js') return;
 
     const newFiles = { ...files };
     delete newFiles[filename];
     setFiles(newFiles);
 
     if (activeFile === filename) {
-      setActiveFile("index.js");
+      setActiveFile('index.js');
     }
     setIsDirty(true);
   };
@@ -678,27 +817,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   // Count total deps for color distribution (used in render)
   const totalDeps = currentModule
-    ? currentModule.deps.filter(d => d.targetModule).length
+    ? currentModule.deps.filter((d) => d.targetModule).length
     : 0;
   let colorIndex = 0;
-  const jsonTitle = resultView === "dependencies" ? "JSON" : "ExportsInfo JSON";
-  const jsonValue = resultView === "dependencies"
-    ? JSON.stringify(stats, null, 2)
-    : JSON.stringify(currentModule?.exportsInfo ?? null, null, 2);
+  const jsonTitle = resultView === 'dependencies' ? 'JSON' : 'ExportsInfo JSON';
+  const jsonValue =
+    resultView === 'dependencies'
+      ? JSON.stringify(stats, null, 2)
+      : JSON.stringify(currentModule?.exportsInfo ?? null, null, 2);
 
   // Check if a dep item should be highlighted from editor hover
-  const isDepHighlightedFromEditor = (depIdx: number) => hoveredDepIndex === depIdx;
+  const isDepHighlightedFromEditor = (depIdx: number) =>
+    hoveredDepIndex === depIdx;
 
   return (
-    <div ref={containerRef} style={{ height: "100vh", position: "relative" }}>
+    <div ref={containerRef} style={{ height: '100vh', position: 'relative' }}>
       <DependencyLines lines={lines} containerRef={containerRef} />
 
-      <Layout style={{ height: "100vh", background: "#141414" }}>
+      <Layout style={{ height: '100vh', background: '#141414' }}>
         <Sider
           className={styles.sider}
           width={600}
           theme="dark"
-          style={{ padding: "20px", borderRight: "1px solid #30363d" }}
+          style={{ padding: '20px', borderRight: '1px solid #30363d' }}
         >
           <FileTabBar
             files={fileList}
@@ -712,7 +853,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             className={styles.editor}
             height="100%"
             language={getLanguageFromFilename(activeFile)}
-            value={files[activeFile] || ""}
+            value={files[activeFile] || ''}
             onChange={handleCodeChange}
             onMount={handleEditorDidMount}
             theme="vs-dark"
@@ -721,10 +862,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               fontSize: 14,
-              lineNumbers: "on",
+              lineNumbers: 'on',
             }}
           />
-          <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
+          <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
             <Select
               value={mode}
               onChange={setMode}
@@ -741,34 +882,38 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               disabled={status.isCompiling || status.isInitializing}
             >
               {status.isCompiling
-                ? "Analyzing..."
+                ? 'Analyzing...'
                 : status.isInitializing
-                  ? "Initializing..."
-                  : "Analyze"}
+                  ? 'Initializing...'
+                  : 'Analyze'}
             </Button>
             <Button
               icon={<IconShareExternal />}
               onClick={() => {
                 // Encode all files as JSON
                 const filesJson = JSON.stringify(files);
-                const encodedFiles = encodeURIComponent(btoa(unescape(encodeURIComponent(filesJson))));
+                const encodedFiles = encodeURIComponent(
+                  btoa(unescape(encodeURIComponent(filesJson))),
+                );
                 const params = new URLSearchParams();
                 params.set('files', encodedFiles);
                 params.set('mode', mode);
                 window.location.hash = params.toString();
                 navigator.clipboard.writeText(window.location.href);
-                Message.success("Url copied");
+                Message.success('Url copied');
               }}
             >
               Copy Share Link
             </Button>
-            {shouldShowStats && resultView === "dependencies" && (
+            {shouldShowStats && resultView === 'dependencies' && (
               <Button
                 icon={<IconEye />}
-                onClick={showAllActive ? clearAllHighlights : showAllDependencyLines}
-                type={showAllActive ? "primary" : "secondary"}
+                onClick={
+                  showAllActive ? clearAllHighlights : showAllDependencyLines
+                }
+                type={showAllActive ? 'primary' : 'secondary'}
               >
-                {showAllActive ? "Hide All" : "Show All"}
+                {showAllActive ? 'Hide All' : 'Show All'}
               </Button>
             )}
           </div>
@@ -776,18 +921,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
         <Content
           style={{
-            padding: "20px",
-            overflow: "auto",
-            width: "calc(100% - 1000px)",
+            padding: '20px',
+            overflow: 'auto',
+            width: 'calc(100% - 1000px)',
           }}
         >
           <div
             style={{
-              background: "#141414",
-              padding: "20px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "20px",
+              background: '#141414',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
             }}
           >
             {status.isInitializing && (
@@ -805,69 +950,94 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               />
             )}
             {isDirty && !status.isCompiling && !status.isInitializing && (
-              <Alert content="Code has been modified. Click Analyze to see dependencies." type="warning" icon />
+              <Alert
+                content="Code has been modified. Click Analyze to see dependencies."
+                type="warning"
+                icon
+              />
             )}
             {shouldShowStats && (
               <div className="analysis-tab-bar">
                 <button
                   type="button"
-                  className={`analysis-tab-btn ${resultView === "dependencies" ? "active" : ""}`}
-                  onClick={() => setResultView("dependencies")}
+                  className={`analysis-tab-btn ${resultView === 'dependencies' ? 'active' : ''}`}
+                  onClick={() => setResultView('dependencies')}
                 >
                   Dependencies
                 </button>
                 <button
                   type="button"
-                  className={`analysis-tab-btn ${resultView === "exports" ? "active" : ""}`}
-                  onClick={() => setResultView("exports")}
+                  className={`analysis-tab-btn ${resultView === 'exports' ? 'active' : ''}`}
+                  onClick={() => setResultView('exports')}
                 >
                   ExportsInfo
                 </button>
               </div>
             )}
             {!shouldShowStats ? (
-              !status.isInitializing && !status.isCompiling && !status.error && !isDirty && (
-                <div style={{ color: "#666" }}>Click Analyze to start</div>
+              !status.isInitializing &&
+              !status.isCompiling &&
+              !status.error &&
+              !isDirty && (
+                <div style={{ color: '#666' }}>Click Analyze to start</div>
               )
             ) : currentModule ? (
-              resultView === "dependencies" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              resultView === 'dependencies' ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '20px',
+                  }}
+                >
                   <Card title={`Dependencies - ${activeFile}`}>
                     {currentModule.deps.map((dep, idx) => {
                       const depKey = `dep-${idx}`;
-                      const currentColorIndex = dep.targetModule ? colorIndex++ : -1;
-                      const depColor = dep.targetModule ? getDepColor(currentColorIndex, totalDeps) : undefined;
+                      const currentColorIndex = dep.targetModule
+                        ? colorIndex++
+                        : -1;
+                      const depColor = dep.targetModule
+                        ? getDepColor(currentColorIndex, totalDeps)
+                        : undefined;
 
                       return (
                         <div
                           key={depKey}
-                          onMouseEnter={() => handleDepHover(dep, currentColorIndex, totalDeps)}
+                          onMouseEnter={() =>
+                            handleDepHover(dep, currentColorIndex, totalDeps)
+                          }
                           onMouseLeave={clearHighlight}
                           className={`dependency-item ${isDepHighlightedFromEditor(idx) ? 'dep-item-active' : ''}`}
                           style={{
-                            cursor: "pointer",
-                            padding: "8px",
-                            borderBottom: "1px solid #30363d",
-                            borderLeft: depColor ? `3px solid ${depColor}` : undefined,
-                            backgroundColor: isDepHighlightedFromEditor(idx) ? `${depColor}33` : undefined,
+                            cursor: 'pointer',
+                            padding: '8px',
+                            borderBottom: '1px solid #30363d',
+                            borderLeft: depColor
+                              ? `3px solid ${depColor}`
+                              : undefined,
+                            backgroundColor: isDepHighlightedFromEditor(idx)
+                              ? `${depColor}33`
+                              : undefined,
                             transition: 'background-color 0.15s ease',
                           }}
                           onClick={() => scrollToDependencyInJson(dep)}
                         >
                           <div
                             style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
                             }}
                           >
-                            <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
+                            <span style={{ color: '#e6e6e6' }}>{dep.type}</span>
                             {dep.targetModule && (
-                              <span style={{
-                                color: depColor,
-                                fontSize: "12px",
-                                marginLeft: "8px",
-                              }}>
+                              <span
+                                style={{
+                                  color: depColor,
+                                  fontSize: '12px',
+                                  marginLeft: '8px',
+                                }}
+                              >
                                 → {dep.targetModule.split('/').pop()}
                               </span>
                             )}
@@ -887,19 +1057,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           onMouseLeave={clearHighlight}
                           className="dependency-item"
                           style={{
-                            cursor: "pointer",
-                            padding: "8px",
-                            borderBottom: "1px solid #30363d",
+                            cursor: 'pointer',
+                            padding: '8px',
+                            borderBottom: '1px solid #30363d',
                           }}
                         >
                           <div
                             style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
                             }}
                           >
-                            <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
+                            <span style={{ color: '#e6e6e6' }}>{dep.type}</span>
                           </div>
                         </div>
                       );
@@ -914,21 +1084,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                           key={blockKey}
                           className="dependency-item"
                           style={{
-                            cursor: "pointer",
-                            padding: "8px",
-                            borderBottom: "1px solid #30363d",
+                            cursor: 'pointer',
+                            padding: '8px',
+                            borderBottom: '1px solid #30363d',
                           }}
                           onMouseEnter={() => highlightRange(block)}
                           onMouseLeave={clearHighlight}
                         >
                           <div
                             style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
                             }}
                           >
-                            <span style={{ color: "#e6e6e6" }}>
+                            <span style={{ color: '#e6e6e6' }}>
                               Async Dependency Block
                             </span>
                           </div>
@@ -938,10 +1108,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   </Card>
                 </div>
               ) : (
-                <ExportsInfoView module={currentModule} activeFile={activeFile} />
+                <ExportsInfoView
+                  module={currentModule}
+                  activeFile={activeFile}
+                />
               )
             ) : (
-              <div style={{ color: "#666" }}>No module data for {activeFile}</div>
+              <div style={{ color: '#666' }}>
+                No module data for {activeFile}
+              </div>
             )}
           </div>
         </Content>
@@ -949,16 +1124,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         <Sider
           width={400}
           theme="dark"
-          style={{ padding: "20px", borderLeft: "1px solid #303030" }}
+          style={{ padding: '20px', borderLeft: '1px solid #303030' }}
         >
           {shouldShowStats && (
             <Card
               title={
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
                   }}
                 >
                   <IconCode />
@@ -966,20 +1141,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 </div>
               }
               style={{
-                height: "100%",
-                background: "#1f1f1f",
-                color: "#fff",
-                borderColor: "#303030",
-                display: "flex",
-                flexDirection: "column",
+                height: '100%',
+                background: '#1f1f1f',
+                color: '#fff',
+                borderColor: '#303030',
+                display: 'flex',
+                flexDirection: 'column',
               }}
               bodyStyle={{
                 flex: 1,
-                overflow: "hidden",
-                padding: "10px", // Reduced padding
+                overflow: 'hidden',
+                padding: '10px', // Reduced padding
               }}
             >
-              <div style={{ height: "100%" }}>
+              <div style={{ height: '100%' }}>
                 <Editor
                   height="100%"
                   defaultLanguage="json"
@@ -991,7 +1166,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     minimap: { enabled: false },
                     scrollBeyondLastLine: false,
                     fontSize: 12,
-                    lineNumbers: "off",
+                    lineNumbers: 'off',
                     folding: true,
                   }}
                 />

@@ -1,12 +1,12 @@
 .sider {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 .sider :global(.arco-layout-sider-children) {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .editor {
-    flex: 1;
+  flex: 1;
 }

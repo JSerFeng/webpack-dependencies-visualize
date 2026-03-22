@@ -1,7 +1,7 @@
-const webpack = require("webpack");
-const path = require("path");
-const config = require("./webpack.config");
-const { UsageState } = require("webpack/lib/ExportsInfo");
+const webpack = require('webpack');
+const path = require('path');
+const config = require('./webpack.config');
+const { UsageState } = require('webpack/lib/ExportsInfo');
 
 // Parse arguments
 const args = process.argv.slice(2);
@@ -13,23 +13,23 @@ config.mode = mode;
 // Create compiler
 const compiler = webpack(config);
 
-compiler.hooks.shouldEmit.tap("debug plugin", () => {
+compiler.hooks.shouldEmit.tap('debug plugin', () => {
   return false;
 });
 
 // Improved serialization for raw data
 function getRawData(dep) {
   const seen = new WeakSet();
-  
+
   const serialize = (obj) => {
     if (obj === null || typeof obj !== 'object') {
       return obj;
     }
-    
+
     if (seen.has(obj)) {
       return '[Circular]';
     }
-    
+
     seen.add(obj);
 
     if (Array.isArray(obj)) {
@@ -52,7 +52,7 @@ function getRawData(dep) {
     const allKeys = new Set();
     let current = obj;
     while (current && current !== Object.prototype) {
-      Object.getOwnPropertyNames(current).forEach(key => allKeys.add(key));
+      Object.getOwnPropertyNames(current).forEach((key) => allKeys.add(key));
       current = Object.getPrototypeOf(current);
     }
 
@@ -62,7 +62,7 @@ function getRawData(dep) {
       if (key === 'constructor' || key.startsWith('_')) {
         continue;
       }
-      
+
       // Still avoid 'compilation' as it is the root context and endless
       if (key === 'compilation') {
         continue;
@@ -72,7 +72,7 @@ function getRawData(dep) {
         const value = obj[key];
         // Filter out functions
         if (typeof value === 'function') {
-           continue;
+          continue;
         }
         newObj[key] = serialize(value);
       } catch (err) {
@@ -90,7 +90,7 @@ function getModulePath(module) {
 }
 
 function getModuleLabel(modulePath) {
-  const normalized = modulePath.replace(/\\/g, "/");
+  const normalized = modulePath.replace(/\\/g, '/');
   const label = path.posix.basename(normalized);
   return label || normalized;
 }
@@ -98,30 +98,30 @@ function getModuleLabel(modulePath) {
 function serializeUsedState(exportInfo) {
   switch (exportInfo.getUsed(undefined)) {
     case UsageState.Unused:
-      return "unused";
+      return 'unused';
     case UsageState.OnlyPropertiesUsed:
-      return "only-properties-used";
+      return 'only-properties-used';
     case UsageState.Unknown:
-      return "unknown";
+      return 'unknown';
     case UsageState.Used:
-      return "used";
+      return 'used';
     case UsageState.NoInfo:
     default:
-      return "no-info";
+      return 'no-info';
   }
 }
 
 function serializeProvidedState(exportInfo) {
   switch (exportInfo.provided) {
     case null:
-      return "maybe-provided";
+      return 'maybe-provided';
     case true:
-      return "provided";
+      return 'provided';
     case false:
-      return "not-provided";
+      return 'not-provided';
     case undefined:
     default:
-      return "no-info";
+      return 'no-info';
   }
 }
 
@@ -139,26 +139,26 @@ function serializeTarget(target) {
 function serializeProvidedExports(exportsInfo) {
   const providedExports = exportsInfo.getProvidedExports();
   if (providedExports === null) {
-    return { kind: "unknown" };
+    return { kind: 'unknown' };
   }
   if (providedExports === true) {
-    return { kind: "dynamic" };
+    return { kind: 'dynamic' };
   }
-  return { kind: "list", exports: providedExports };
+  return { kind: 'list', exports: providedExports };
 }
 
 function serializeUsedExports(exportsInfo) {
   const usedExports = exportsInfo.getUsedExports(undefined);
   if (usedExports === null) {
-    return { kind: "unknown" };
+    return { kind: 'unknown' };
   }
   if (usedExports === true) {
-    return { kind: "namespace" };
+    return { kind: 'namespace' };
   }
   if (usedExports === false) {
-    return { kind: "unused" };
+    return { kind: 'unused' };
   }
-  return { kind: "list", exports: [...usedExports] };
+  return { kind: 'list', exports: [...usedExports] };
 }
 
 function serializeSpecialExportInfo(name, exportInfo, moduleGraph) {
@@ -182,12 +182,14 @@ function serializeExportsInfo(exportsInfo, moduleGraph, seen = new WeakSet()) {
   seen.add(exportsInfo);
 
   const ownedExportNames = new Set(
-    Array.from(exportsInfo.ownedExports, (exportInfo) => exportInfo.name)
+    Array.from(exportsInfo.ownedExports, (exportInfo) => exportInfo.name),
   );
   const redirectedExportNames =
     exportsInfo._redirectTo !== undefined
-      ? Array.from(exportsInfo._redirectTo.orderedExports, (exportInfo) => exportInfo.name)
-          .filter((name) => !ownedExportNames.has(name))
+      ? Array.from(
+          exportsInfo._redirectTo.orderedExports,
+          (exportInfo) => exportInfo.name,
+        ).filter((name) => !ownedExportNames.has(name))
       : [];
 
   return {
@@ -195,13 +197,14 @@ function serializeExportsInfo(exportsInfo, moduleGraph, seen = new WeakSet()) {
     usedExports: serializeUsedExports(exportsInfo),
     exports: Array.from(exportsInfo.orderedExports, (exportInfo) => ({
       name: exportInfo.name,
-      ownership: ownedExportNames.has(exportInfo.name) ? "owned" : "redirected",
+      ownership: ownedExportNames.has(exportInfo.name) ? 'owned' : 'redirected',
       usedState: serializeUsedState(exportInfo),
       usedLabel: exportInfo.getUsedInfo(),
       providedState: serializeProvidedState(exportInfo),
       providedLabel: exportInfo.getProvidedInfo(),
       renameLabel: exportInfo.getRenameInfo(),
-      usedName: typeof exportInfo._usedName === "string" ? exportInfo._usedName : null,
+      usedName:
+        typeof exportInfo._usedName === 'string' ? exportInfo._usedName : null,
       terminalBinding: Boolean(exportInfo.terminalBinding),
       isReexport: exportInfo.isReexport(),
       target: serializeTarget(exportInfo.getTarget(moduleGraph)),
@@ -210,14 +213,14 @@ function serializeExportsInfo(exportsInfo, moduleGraph, seen = new WeakSet()) {
         : null,
     })),
     otherExportsInfo: serializeSpecialExportInfo(
-      "other exports",
+      'other exports',
       exportsInfo.otherExportsInfo,
-      moduleGraph
+      moduleGraph,
     ),
     sideEffectsOnlyInfo: serializeSpecialExportInfo(
-      "side effects only",
+      'side effects only',
       exportsInfo._sideEffectsOnlyInfo,
-      moduleGraph
+      moduleGraph,
     ),
     isUsed: exportsInfo.isUsed(undefined),
     isModuleUsed: exportsInfo.isModuleUsed(undefined),
@@ -228,30 +231,33 @@ function serializeExportsInfo(exportsInfo, moduleGraph, seen = new WeakSet()) {
 
 let allModules = [];
 
-compiler.hooks.compilation.tap("debug plugin", (compilation) => {
-  compilation.hooks.optimizeChunkModules.tap("debug plugin", () => {
+compiler.hooks.compilation.tap('debug plugin', (compilation) => {
+  compilation.hooks.optimizeChunkModules.tap('debug plugin', () => {
     const modules = compilation.modules;
     const moduleGraph = compilation.moduleGraph;
-    
+
     allModules = [...modules].map((module) => {
       const modulePath = getModulePath(module);
-      
+
       // Get dependencies with target module info
       const deps = (module.dependencies || []).map((dep) => {
         const rawData = getRawData(dep);
-        
+
         // Use moduleGraph.getModule to get the target module
         const targetModule = moduleGraph.getModule(dep);
         if (targetModule) {
-          rawData.targetModule = targetModule.resource || targetModule.identifier();
+          rawData.targetModule =
+            targetModule.resource || targetModule.identifier();
         }
-        
+
         return rawData;
       });
 
-      const presentationalDeps = (module.presentationalDependencies || []).map((dep) => {
-        return getRawData(dep);
-      });
+      const presentationalDeps = (module.presentationalDependencies || []).map(
+        (dep) => {
+          return getRawData(dep);
+        },
+      );
 
       const blocks = (module.blocks || []).map((block) => {
         const serializedBlock = getRawData(block);
@@ -259,7 +265,8 @@ compiler.hooks.compilation.tap("debug plugin", (compilation) => {
           const rawData = getRawData(dep);
           const targetModule = moduleGraph.getModule(dep);
           if (targetModule) {
-            rawData.targetModule = targetModule.resource || targetModule.identifier();
+            rawData.targetModule =
+              targetModule.resource || targetModule.identifier();
           }
           return rawData;
         });
@@ -271,7 +278,10 @@ compiler.hooks.compilation.tap("debug plugin", (compilation) => {
         deps,
         presentationalDeps,
         blocks,
-        exportsInfo: serializeExportsInfo(moduleGraph.getExportsInfo(module), moduleGraph),
+        exportsInfo: serializeExportsInfo(
+          moduleGraph.getExportsInfo(module),
+          moduleGraph,
+        ),
       };
     });
   });

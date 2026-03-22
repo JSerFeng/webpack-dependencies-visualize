@@ -1,12 +1,12 @@
-import React from "react";
-import { Card } from "@arco-design/web-react";
+import { Card } from '@arco-design/web-react';
+import type React from 'react';
 import type {
   SerializedExportInfo,
   SerializedProvidedExports,
   SerializedSpecialExportInfo,
   SerializedUsedExports,
   WebpackModule,
-} from "../utils/webpackCompiler";
+} from '../utils/webpackCompiler';
 
 interface ExportsInfoViewProps {
   module: WebpackModule;
@@ -14,73 +14,76 @@ interface ExportsInfoViewProps {
 }
 
 const getModuleLabel = (modulePath: string) => {
-  const segments = modulePath.replace(/\\/g, "/").split("/");
+  const segments = modulePath.replace(/\\/g, '/').split('/');
   return segments[segments.length - 1] || modulePath;
 };
 
 const getProvidedSummary = (providedExports: SerializedProvidedExports) => {
   switch (providedExports.kind) {
-    case "unknown":
-      return "No provided info";
-    case "dynamic":
-      return "Runtime-defined export shape";
-    case "list":
+    case 'unknown':
+      return 'No provided info';
+    case 'dynamic':
+      return 'Runtime-defined export shape';
+    case 'list':
       return providedExports.exports.length === 0
-        ? "No named exports"
-        : providedExports.exports.join(", ");
+        ? 'No named exports'
+        : providedExports.exports.join(', ');
   }
 };
 
 const getUsedSummary = (usedExports: SerializedUsedExports) => {
   switch (usedExports.kind) {
-    case "unknown":
-      return "Usage is unknown";
-    case "namespace":
-      return "Namespace/object export is used";
-    case "unused":
-      return "No export usage";
-    case "list":
+    case 'unknown':
+      return 'Usage is unknown';
+    case 'namespace':
+      return 'Namespace/object export is used';
+    case 'unused':
+      return 'No export usage';
+    case 'list':
       return usedExports.exports.length === 0
-        ? "Module is used without named exports"
-        : usedExports.exports.join(", ");
+        ? 'Module is used without named exports'
+        : usedExports.exports.join(', ');
   }
 };
 
-const getUsageTone = (usedState: SerializedExportInfo["usedState"]) => {
+const getUsageTone = (usedState: SerializedExportInfo['usedState']) => {
   switch (usedState) {
-    case "used":
-      return "emerald";
-    case "only-properties-used":
-      return "amber";
-    case "unknown":
-      return "sky";
-    case "no-info":
-      return "slate";
-    case "unused":
+    case 'used':
+      return 'emerald';
+    case 'only-properties-used':
+      return 'amber';
+    case 'unknown':
+      return 'sky';
+    case 'no-info':
+      return 'slate';
+    case 'unused':
     default:
-      return "graphite";
+      return 'graphite';
   }
 };
 
-const getProvidedTone = (providedState: SerializedExportInfo["providedState"]) => {
+const getProvidedTone = (
+  providedState: SerializedExportInfo['providedState'],
+) => {
   switch (providedState) {
-    case "provided":
-      return "emerald";
-    case "maybe-provided":
-      return "amber";
-    case "not-provided":
-      return "rose";
-    case "no-info":
+    case 'provided':
+      return 'emerald';
+    case 'maybe-provided':
+      return 'amber';
+    case 'not-provided':
+      return 'rose';
+    case 'no-info':
     default:
-      return "slate";
+      return 'slate';
   }
 };
 
-const getListTone = (value: boolean) => (value ? "emerald" : "graphite");
+const getListTone = (value: boolean) => (value ? 'emerald' : 'graphite');
 
-const StatusPill: React.FC<{ label: string; tone: string }> = ({ label, tone }) => (
-  <span className={`exports-pill exports-pill-${tone}`}>{label}</span>
-);
+const StatusPill: React.FC<{ label: string; tone: string }> = ({
+  label,
+  tone,
+}) => <span className={`exports-pill exports-pill-${tone}`}>{label}</span>;
 
 const SummaryStat: React.FC<{ label: string; value: string; tone: string }> = ({
   label,
@@ -115,41 +118,54 @@ const SpecialInfoCard: React.FC<{
       </div>
     </div>
     <div className="exports-pill-row">
-      <StatusPill label={info.providedLabel} tone={getProvidedTone(info.providedState)} />
+      <StatusPill
+        label={info.providedLabel}
+        tone={getProvidedTone(info.providedState)}
+      />
       <StatusPill label={info.usedLabel} tone={getUsageTone(info.usedState)} />
       {info.isReexport && <StatusPill label="reexport" tone="sky" />}
-      {info.terminalBinding && <StatusPill label="terminal binding" tone="amber" />}
+      {info.terminalBinding && (
+        <StatusPill label="terminal binding" tone="amber" />
+      )}
     </div>
     {info.target && (
       <div className="exports-target-callout">
         Reexport target:
         <strong>{` ${info.target.moduleLabel}`}</strong>
-        {info.target.exportPath ? `.${info.target.exportPath.join(".")}` : ""}
+        {info.target.exportPath ? `.${info.target.exportPath.join('.')}` : ''}
       </div>
     )}
   </Card>
 );
 
-const ExportNode: React.FC<{ exportInfo: SerializedExportInfo; depth?: number }> = ({
-  exportInfo,
-  depth = 0,
-}) => (
-  <div className="exports-node" style={{ ["--exports-depth" as string]: depth }}>
+const ExportNode: React.FC<{
+  exportInfo: SerializedExportInfo;
+  depth?: number;
+}> = ({ exportInfo, depth = 0 }) => (
+  <div
+    className="exports-node"
+    style={{ ['--exports-depth' as string]: depth }}
+  >
     <div className="exports-node-card">
       <div className="exports-node-header">
         <div className="exports-node-heading">
           <div className="exports-node-name-row">
             <span className="exports-node-name">{exportInfo.name}</span>
             <StatusPill
-              label={exportInfo.ownership === "owned" ? "owned" : "redirected"}
-              tone={exportInfo.ownership === "owned" ? "slate" : "sky"}
+              label={exportInfo.ownership === 'owned' ? 'owned' : 'redirected'}
+              tone={exportInfo.ownership === 'owned' ? 'slate' : 'sky'}
             />
-            {exportInfo.isReexport && <StatusPill label="reexport" tone="sky" />}
+            {exportInfo.isReexport && (
+              <StatusPill label="reexport" tone="sky" />
+            )}
             {exportInfo.terminalBinding && (
               <StatusPill label="terminal binding" tone="amber" />
             )}
             {exportInfo.usedName && exportInfo.usedName !== exportInfo.name && (
-              <StatusPill label={`used as ${exportInfo.usedName}`} tone="amber" />
+              <StatusPill
+                label={`used as ${exportInfo.usedName}`}
+                tone="amber"
+              />
             )}
           </div>
           <div className="exports-node-rename">{exportInfo.renameLabel}</div>
@@ -159,8 +175,8 @@ const ExportNode: React.FC<{ exportInfo: SerializedExportInfo; depth?: number }>
             <span className="exports-node-target-label">target</span>
             <strong>{exportInfo.target.moduleLabel}</strong>
             {exportInfo.target.exportPath
-              ? `.${exportInfo.target.exportPath.join(".")}`
-              : ""}
+              ? `.${exportInfo.target.exportPath.join('.')}`
+              : ''}
           </div>
         )}
       </div>
@@ -168,7 +184,9 @@ const ExportNode: React.FC<{ exportInfo: SerializedExportInfo; depth?: number }>
       <div className="exports-state-grid">
         <div className="exports-state-item">
           <span className="exports-state-label">provided</span>
-          <span className="exports-state-value">{exportInfo.providedLabel}</span>
+          <span className="exports-state-value">
+            {exportInfo.providedLabel}
+          </span>
         </div>
         <div className="exports-state-item">
           <span className="exports-state-label">used</span>
@@ -199,7 +217,8 @@ const ExportNode: React.FC<{ exportInfo: SerializedExportInfo; depth?: number }>
             </div>
           ) : (
             <div className="exports-empty-hint">
-              Nested ExportsInfo exists, but no named nested exports were serialized.
+              Nested ExportsInfo exists, but no named nested exports were
+              serialized.
             </div>
           )}
         </div>
@@ -208,7 +227,10 @@ const ExportNode: React.FC<{ exportInfo: SerializedExportInfo; depth?: number }>
   </div>
 );
 
-const ExportsInfoView: React.FC<ExportsInfoViewProps> = ({ module, activeFile }) => {
+const ExportsInfoView: React.FC<ExportsInfoViewProps> = ({
+  module,
+  activeFile,
+}) => {
   const exportsInfo = module.exportsInfo;
 
   if (!exportsInfo) {
@@ -222,11 +244,13 @@ const ExportsInfoView: React.FC<ExportsInfoViewProps> = ({ module, activeFile })
   }
 
   const ownedCount = exportsInfo.exports.filter(
-    (exportInfo) => exportInfo.ownership === "owned"
+    (exportInfo) => exportInfo.ownership === 'owned',
   ).length;
-  const reexportCount = exportsInfo.exports.filter((exportInfo) => exportInfo.isReexport).length;
+  const reexportCount = exportsInfo.exports.filter(
+    (exportInfo) => exportInfo.isReexport,
+  ).length;
   const unusedCount = exportsInfo.exports.filter(
-    (exportInfo) => exportInfo.usedState === "unused"
+    (exportInfo) => exportInfo.usedState === 'unused',
   ).length;
   const namedExportCount = exportsInfo.exports.length;
   const moduleLabel = getModuleLabel(module.path);
@@ -242,14 +266,18 @@ const ExportsInfoView: React.FC<ExportsInfoViewProps> = ({ module, activeFile })
           </div>
           <div className="exports-pill-row">
             <StatusPill
-              label={exportsInfo.isModuleUsed ? "module used" : "module unused"}
+              label={exportsInfo.isModuleUsed ? 'module used' : 'module unused'}
               tone={getListTone(exportsInfo.isModuleUsed)}
             />
             <StatusPill
-              label={exportsInfo.isUsed ? "has export usage" : "side-effects only"}
+              label={
+                exportsInfo.isUsed ? 'has export usage' : 'side-effects only'
+              }
               tone={getListTone(exportsInfo.isUsed)}
             />
-            {exportsInfo.hasRedirect && <StatusPill label="redirected exports" tone="sky" />}
+            {exportsInfo.hasRedirect && (
+              <StatusPill label="redirected exports" tone="sky" />
+            )}
           </div>
         </div>
 
@@ -260,8 +288,16 @@ const ExportsInfoView: React.FC<ExportsInfoViewProps> = ({ module, activeFile })
             tone="slate"
           />
           <SummaryStat label="owned" value={String(ownedCount)} tone="slate" />
-          <SummaryStat label="reexports" value={String(reexportCount)} tone="sky" />
-          <SummaryStat label="unused" value={String(unusedCount)} tone="graphite" />
+          <SummaryStat
+            label="reexports"
+            value={String(reexportCount)}
+            tone="sky"
+          />
+          <SummaryStat
+            label="unused"
+            value={String(unusedCount)}
+            tone="graphite"
+          />
         </div>
 
         <div className="exports-collection-grid">

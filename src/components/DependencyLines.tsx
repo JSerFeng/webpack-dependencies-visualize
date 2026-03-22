@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
 interface LineInfo {
   startX: number;
@@ -15,11 +16,14 @@ interface DependencyLinesProps {
 
 // Generate distinct colors using HSL
 export const getDepColor = (index: number, total: number): string => {
-  const hue = (index * 360 / Math.max(total, 1)) % 360;
+  const hue = ((index * 360) / Math.max(total, 1)) % 360;
   return `hsl(${hue}, 70%, 55%)`;
 };
 
-const DependencyLines: React.FC<DependencyLinesProps> = ({ lines, containerRef }) => {
+const DependencyLines: React.FC<DependencyLinesProps> = ({
+  lines,
+  containerRef,
+}) => {
   const [containerBounds, setContainerBounds] = useState<DOMRect | null>(null);
 
   useEffect(() => {
@@ -30,12 +34,12 @@ const DependencyLines: React.FC<DependencyLinesProps> = ({ lines, containerRef }
     };
 
     updateBounds();
-    window.addEventListener("resize", updateBounds);
-    window.addEventListener("scroll", updateBounds, true);
+    window.addEventListener('resize', updateBounds);
+    window.addEventListener('scroll', updateBounds, true);
 
     return () => {
-      window.removeEventListener("resize", updateBounds);
-      window.removeEventListener("scroll", updateBounds, true);
+      window.removeEventListener('resize', updateBounds);
+      window.removeEventListener('scroll', updateBounds, true);
     };
   }, [containerRef]);
 
@@ -45,12 +49,12 @@ const DependencyLines: React.FC<DependencyLinesProps> = ({ lines, containerRef }
     <svg
       className="dependency-lines-svg"
       style={{
-        position: "fixed",
+        position: 'fixed',
         top: 0,
         left: 0,
-        width: "100%",
-        height: "100%",
-        pointerEvents: "none",
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
         zIndex: 1000,
       }}
     >
@@ -65,12 +69,7 @@ const DependencyLines: React.FC<DependencyLinesProps> = ({ lines, containerRef }
             refY="4"
             orient="auto"
           >
-            <circle
-              cx="4"
-              cy="4"
-              r="3"
-              fill={lines[idx].color}
-            />
+            <circle cx="4" cy="4" r="3" fill={lines[idx].color} />
           </marker>
         ))}
       </defs>
