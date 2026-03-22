@@ -1,8 +1,10 @@
 import React from "react";
 import { Button } from "@arco-design/web-react";
 import { IconPlus, IconClose } from "@arco-design/web-react/icon";
+import classNames from 'classnames';
 
 interface FileTabBarProps {
+  className?: string,
   files: string[];
   activeFile: string;
   onSelectFile: (filename: string) => void;
@@ -12,6 +14,7 @@ interface FileTabBarProps {
 }
 
 const FileTabBar: React.FC<FileTabBarProps> = ({
+  className,
   files,
   activeFile,
   onSelectFile,
@@ -20,7 +23,7 @@ const FileTabBar: React.FC<FileTabBarProps> = ({
   fileTabRefs,
 }) => {
   return (
-    <div className="file-tab-bar">
+    <div className={classNames("file-tab-bar", className)}>
       {files.map((filename) => (
         <div
           key={filename}

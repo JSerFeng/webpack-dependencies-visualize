@@ -10,11 +10,76 @@ export type WebpackBlock = {
   [key: string]: any;
 };
 
+export type SerializedProvidedExports =
+  | { kind: "unknown" }
+  | { kind: "dynamic" }
+  | { kind: "list"; exports: string[] };
+
+export type SerializedUsedExports =
+  | { kind: "unknown" }
+  | { kind: "namespace" }
+  | { kind: "unused" }
+  | { kind: "list"; exports: string[] };
+
+export type SerializedUsageState =
+  | "unused"
+  | "only-properties-used"
+  | "no-info"
+  | "unknown"
+  | "used";
+
+export type SerializedProvidedState =
+  | "no-info"
+  | "maybe-provided"
+  | "provided"
+  | "not-provided";
+
+export type ExportOwnership = "owned" | "redirected";
+
+export type SerializedExportTarget = {
+  modulePath: string;
+  moduleLabel: string;
+  exportPath: string[] | null;
+};
+
+export type SerializedExportState = {
+  name: string;
+  usedState: SerializedUsageState;
+  usedLabel: string;
+  providedState: SerializedProvidedState;
+  providedLabel: string;
+  renameLabel: string;
+  terminalBinding: boolean;
+  isReexport: boolean;
+  target: SerializedExportTarget | null;
+};
+
+export type SerializedExportInfo = SerializedExportState & {
+  ownership: ExportOwnership;
+  usedName: string | null;
+  nested: SerializedExportsInfo | null;
+};
+
+export type SerializedSpecialExportInfo = SerializedExportState;
+
+export type SerializedExportsInfo = {
+  providedExports: SerializedProvidedExports;
+  usedExports: SerializedUsedExports;
+  exports: SerializedExportInfo[];
+  otherExportsInfo: SerializedSpecialExportInfo;
+  sideEffectsOnlyInfo: SerializedSpecialExportInfo;
+  isUsed: boolean;
+  isModuleUsed: boolean;
+  hasRedirect: boolean;
+  redirectedExportNames: string[];
+};
+
 export type WebpackModule = {
   path: string;
   deps: WebpackDependency[];
   presentationalDeps: WebpackDependency[];
   blocks: WebpackBlock[];
+  exportsInfo: SerializedExportsInfo | null;
 };
 
 export interface CompileResult {
@@ -75,4 +140,3 @@ export const compileCode = async (
     };
   }
 };
-

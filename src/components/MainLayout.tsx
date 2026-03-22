@@ -11,6 +11,8 @@ import type { WebpackModule, WebpackDependency, WebpackBlock, FileMap } from "..
 import type { editor } from "monaco-editor";
 import FileTabBar from "./FileTabBar";
 import DependencyLines, { getDepColor } from "./DependencyLines";
+import ExportsInfoView from "./ExportsInfoView";
+import styles from "./MainLayout.module.css";
 
 const { Sider, Content } = Layout;
 
@@ -39,23 +41,33 @@ const getLanguageFromFilename = (filename: string): string => {
 };
 
 const DEFAULT_CODE = `// Entry point - index.js
-import { foo, bar } from './utils.js';
-import 'external/lodash';
+import { foo, bar as renamedBar } from './utils.js';
+import './side.js';
 import './style.css';
 
 console.log(foo());
-console.log(bar());
+console.log(renamedBar);
 `;
 
 const DEFAULT_UTILS = `// utils.js
-export * from './lib'
-export const bar = () => 42
+export * from './lib.js';
+export const bar = 42;
 `;
 
 const DEFAULT_LIB = `// lib.js
 export function foo() {
   return 'Hello World!';
 }
+
+export const nested = {
+  deep: {
+    value: 1,
+  },
+};
+`;
+
+const DEFAULT_SIDE = `// side.js
+console.log('side effect boot');
 `;
 
 const DEFAULT_STYLE = `/* style.css - CSS with @import and url() dependencies */
@@ -84,6 +96,7 @@ const DEFAULT_FILES: FileMap = {
   "index.js": DEFAULT_CODE,
   "utils.js": DEFAULT_UTILS,
   "lib.js": DEFAULT_LIB,
+  "side.js": DEFAULT_SIDE,
   "style.css": DEFAULT_STYLE,
   "base.css": DEFAULT_BASE_CSS,
 };
@@ -104,6 +117,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // New file modal state
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState("");
+  const [resultView, setResultView] = useState<"dependencies" | "exports">("dependencies");
 
   // Monaco editor
   const monaco = useMonaco();
@@ -115,7 +129,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // Refs for line drawing
   const containerRef = useRef<HTMLDivElement>(null);
   const fileTabRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const depItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Lines state
   const [lines, setLines] = useState<Array<{ startX: number; startY: number; endX: number; endY: number; color: string }>>([]);
@@ -127,6 +140,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       setFiles(initialFiles);
     }
   }, [initialFiles]);
+
+  useEffect(() => {
+    if (resultView === "dependencies") return;
+    setHoveredDepIndex(null);
+    setLines([]);
+    setShowAllActive(false);
+    if (decorationsCollectionRef.current) {
+      decorationsCollectionRef.current.clear();
+    }
+  }, [resultView]);
 
   // Clear stats when code changes
   const handleCodeChange = useCallback((value: string | undefined) => {
@@ -303,7 +326,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   // Add mouse move listener to editor
   useEffect(() => {
-    if (!editorRef.current || !shouldShowStats) {
+    if (!editorRef.current || !shouldShowStats || resultView !== "dependencies") {
       setHoveredDepIndex(null);
       return;
     }
@@ -339,7 +362,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       clickDisposable.dispose();
       leaveDisposable.dispose();
     };
-  }, [handleEditorHover, showAllActive, shouldShowStats, findDepAtPosition, scrollToDependencyInJson]);
+  }, [
+    handleEditorHover,
+    showAllActive,
+    shouldShowStats,
+    findDepAtPosition,
+    scrollToDependencyInJson,
+    resultView,
+  ]);
 
   const highlightRange = (dep: WebpackDependency | WebpackBlock, color?: string) => {
     if (!editorRef.current || !monaco || !dep.loc) return;
@@ -651,6 +681,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     ? currentModule.deps.filter(d => d.targetModule).length
     : 0;
   let colorIndex = 0;
+  const jsonTitle = resultView === "dependencies" ? "JSON" : "ExportsInfo JSON";
+  const jsonValue = resultView === "dependencies"
+    ? JSON.stringify(stats, null, 2)
+    : JSON.stringify(currentModule?.exportsInfo ?? null, null, 2);
 
   // Check if a dep item should be highlighted from editor hover
   const isDepHighlightedFromEditor = (depIdx: number) => hoveredDepIndex === depIdx;
@@ -661,6 +695,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
       <Layout style={{ height: "100vh", background: "#141414" }}>
         <Sider
+          className={styles.sider}
           width={600}
           theme="dark"
           style={{ padding: "20px", borderRight: "1px solid #30363d" }}
@@ -673,23 +708,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             onDeleteFile={handleDeleteFile}
             fileTabRefs={fileTabRefs}
           />
-          <div style={{ height: "calc(100% - 100px)" }}>
-            <Editor
-              height="100%"
-              language={getLanguageFromFilename(activeFile)}
-              value={files[activeFile] || ""}
-              onChange={handleCodeChange}
-              onMount={handleEditorDidMount}
-              theme="vs-dark"
-              path={activeFile}
-              options={{
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                fontSize: 14,
-                lineNumbers: "on",
-              }}
-            />
-          </div>
+          <Editor
+            className={styles.editor}
+            height="100%"
+            language={getLanguageFromFilename(activeFile)}
+            value={files[activeFile] || ""}
+            onChange={handleCodeChange}
+            onMount={handleEditorDidMount}
+            theme="vs-dark"
+            path={activeFile}
+            options={{
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              fontSize: 14,
+              lineNumbers: "on",
+            }}
+          />
           <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
             <Select
               value={mode}
@@ -728,7 +762,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             >
               Copy Share Link
             </Button>
-            {shouldShowStats && (
+            {shouldShowStats && resultView === "dependencies" && (
               <Button
                 icon={<IconEye />}
                 onClick={showAllActive ? clearAllHighlights : showAllDependencyLines}
@@ -773,118 +807,139 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             {isDirty && !status.isCompiling && !status.isInitializing && (
               <Alert content="Code has been modified. Click Analyze to see dependencies." type="warning" icon />
             )}
+            {shouldShowStats && (
+              <div className="analysis-tab-bar">
+                <button
+                  type="button"
+                  className={`analysis-tab-btn ${resultView === "dependencies" ? "active" : ""}`}
+                  onClick={() => setResultView("dependencies")}
+                >
+                  Dependencies
+                </button>
+                <button
+                  type="button"
+                  className={`analysis-tab-btn ${resultView === "exports" ? "active" : ""}`}
+                  onClick={() => setResultView("exports")}
+                >
+                  ExportsInfo
+                </button>
+              </div>
+            )}
             {!shouldShowStats ? (
               !status.isInitializing && !status.isCompiling && !status.error && !isDirty && (
                 <div style={{ color: "#666" }}>Click Analyze to start</div>
               )
             ) : currentModule ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                <Card title={`Dependencies - ${activeFile}`}>
-                  {currentModule.deps.map((dep, idx) => {
-                    const depKey = `dep-${idx}`;
-                    const currentColorIndex = dep.targetModule ? colorIndex++ : -1;
-                    const depColor = dep.targetModule ? getDepColor(currentColorIndex, totalDeps) : undefined;
+              resultView === "dependencies" ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  <Card title={`Dependencies - ${activeFile}`}>
+                    {currentModule.deps.map((dep, idx) => {
+                      const depKey = `dep-${idx}`;
+                      const currentColorIndex = dep.targetModule ? colorIndex++ : -1;
+                      const depColor = dep.targetModule ? getDepColor(currentColorIndex, totalDeps) : undefined;
 
-                    return (
-                      <div
-                        key={depKey}
-                        ref={(el) => { depItemRefs.current[depKey] = el; }}
-                        onMouseEnter={() => handleDepHover(dep, currentColorIndex, totalDeps)}
-                        onMouseLeave={clearHighlight}
-                        className={`dependency-item ${isDepHighlightedFromEditor(idx) ? 'dep-item-active' : ''}`}
-                        style={{
-                          cursor: "pointer",
-                          padding: "8px",
-                          borderBottom: "1px solid #30363d",
-                          borderLeft: depColor ? `3px solid ${depColor}` : undefined,
-                          backgroundColor: isDepHighlightedFromEditor(idx) ? `${depColor}33` : undefined,
-                          transition: 'background-color 0.15s ease',
-                        }}
-                        onClick={() => scrollToDependencyInJson(dep)}
-                      >
+                      return (
                         <div
+                          key={depKey}
+                          onMouseEnter={() => handleDepHover(dep, currentColorIndex, totalDeps)}
+                          onMouseLeave={clearHighlight}
+                          className={`dependency-item ${isDepHighlightedFromEditor(idx) ? 'dep-item-active' : ''}`}
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
+                            cursor: "pointer",
+                            padding: "8px",
+                            borderBottom: "1px solid #30363d",
+                            borderLeft: depColor ? `3px solid ${depColor}` : undefined,
+                            backgroundColor: isDepHighlightedFromEditor(idx) ? `${depColor}33` : undefined,
+                            transition: 'background-color 0.15s ease',
+                          }}
+                          onClick={() => scrollToDependencyInJson(dep)}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
+                            {dep.targetModule && (
+                              <span style={{
+                                color: depColor,
+                                fontSize: "12px",
+                                marginLeft: "8px",
+                              }}>
+                                → {dep.targetModule.split('/').pop()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </Card>
+
+                  <Card title="Presentational Dependencies">
+                    {currentModule.presentationalDeps.map((dep, idx) => {
+                      const depKey = `pres-${idx}`;
+                      return (
+                        <div
+                          key={depKey}
+                          onMouseEnter={() => highlightRange(dep)}
+                          onMouseLeave={clearHighlight}
+                          className="dependency-item"
+                          style={{
+                            cursor: "pointer",
+                            padding: "8px",
+                            borderBottom: "1px solid #30363d",
                           }}
                         >
-                          <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
-                          {dep.targetModule && (
-                            <span style={{
-                              color: depColor,
-                              fontSize: "12px",
-                              marginLeft: "8px",
-                            }}>
-                              → {dep.targetModule.split('/').pop()}
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </Card>
+
+                  <Card title="Blocks">
+                    {currentModule.blocks.map((block, idx) => {
+                      const blockKey = `block-${idx}`;
+                      return (
+                        <div
+                          key={blockKey}
+                          className="dependency-item"
+                          style={{
+                            cursor: "pointer",
+                            padding: "8px",
+                            borderBottom: "1px solid #30363d",
+                          }}
+                          onMouseEnter={() => highlightRange(block)}
+                          onMouseLeave={clearHighlight}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <span style={{ color: "#e6e6e6" }}>
+                              Async Dependency Block
                             </span>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </Card>
-
-                <Card title="Presentational Dependencies">
-                  {currentModule.presentationalDeps.map((dep, idx) => {
-                    const depKey = `pres-${idx}`;
-                    return (
-                      <div
-                        key={depKey}
-                        onMouseEnter={() => highlightRange(dep)}
-                        onMouseLeave={clearHighlight}
-                        className="dependency-item"
-                        style={{
-                          cursor: "pointer",
-                          padding: "8px",
-                          borderBottom: "1px solid #30363d",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span style={{ color: "#e6e6e6" }}>{dep.type}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </Card>
-
-                <Card title="Blocks">
-                  {currentModule.blocks.map((block, idx) => {
-                    const blockKey = `block-${idx}`;
-                    return (
-                      <div
-                        key={blockKey}
-                        className="dependency-item"
-                        style={{
-                          cursor: "pointer",
-                          padding: "8px",
-                          borderBottom: "1px solid #30363d",
-                        }}
-                        onMouseEnter={() => highlightRange(block)}
-                        onMouseLeave={clearHighlight}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span style={{ color: "#e6e6e6" }}>
-                            Async Dependency Block
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </Card>
-              </div>
+                      );
+                    })}
+                  </Card>
+                </div>
+              ) : (
+                <ExportsInfoView module={currentModule} activeFile={activeFile} />
+              )
             ) : (
               <div style={{ color: "#666" }}>No module data for {activeFile}</div>
             )}
@@ -907,7 +962,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   }}
                 >
                   <IconCode />
-                  <span>JSON</span>
+                  <span>{jsonTitle}</span>
                 </div>
               }
               style={{
@@ -928,7 +983,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 <Editor
                   height="100%"
                   defaultLanguage="json"
-                  value={JSON.stringify(stats, null, 2)}
+                  value={jsonValue}
                   theme="vs-dark"
                   onMount={handleJsonEditorDidMount}
                   options={{

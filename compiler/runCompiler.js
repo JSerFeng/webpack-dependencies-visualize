@@ -1,5 +1,7 @@
 const webpack = require("webpack");
+const path = require("path");
 const config = require("./webpack.config");
+const { UsageState } = require("webpack/lib/ExportsInfo");
 
 // Parse arguments
 const args = process.argv.slice(2);
@@ -14,27 +16,6 @@ const compiler = webpack(config);
 compiler.hooks.shouldEmit.tap("debug plugin", () => {
   return false;
 });
-
-// Safe stringify function to handle circular references and omit null/undefined
-function safeStringify(obj) {
-  const cache = new Set();
-  return JSON.stringify(obj, (key, value) => {
-    if (typeof value === 'object' && value !== null) {
-      if (cache.has(value)) {
-        // Circular reference found
-        return;
-      }
-      // Store value in our collection
-      cache.add(value);
-    }
-    // Remove underscores and internal webpack properties if needed, 
-    // but for "raw data" we might want to keep most things.
-    // However, some webpack internal objects are huge.
-    // Let's at least filter out commonly problematic or huge internal fields if needed.
-    // For now, simple circular ref protection.
-    return value;
-  });
-}
 
 // Improved serialization for raw data
 function getRawData(dep) {
@@ -104,6 +85,146 @@ function getRawData(dep) {
   return serialize(dep);
 }
 
+function getModulePath(module) {
+  return module.resource || module.identifier();
+}
+
+function getModuleLabel(modulePath) {
+  const normalized = modulePath.replace(/\\/g, "/");
+  const label = path.posix.basename(normalized);
+  return label || normalized;
+}
+
+function serializeUsedState(exportInfo) {
+  switch (exportInfo.getUsed(undefined)) {
+    case UsageState.Unused:
+      return "unused";
+    case UsageState.OnlyPropertiesUsed:
+      return "only-properties-used";
+    case UsageState.Unknown:
+      return "unknown";
+    case UsageState.Used:
+      return "used";
+    case UsageState.NoInfo:
+    default:
+      return "no-info";
+  }
+}
+
+function serializeProvidedState(exportInfo) {
+  switch (exportInfo.provided) {
+    case null:
+      return "maybe-provided";
+    case true:
+      return "provided";
+    case false:
+      return "not-provided";
+    case undefined:
+    default:
+      return "no-info";
+  }
+}
+
+function serializeTarget(target) {
+  if (!target) return null;
+
+  const modulePath = getModulePath(target.module);
+  return {
+    modulePath,
+    moduleLabel: getModuleLabel(modulePath),
+    exportPath: target.export || null,
+  };
+}
+
+function serializeProvidedExports(exportsInfo) {
+  const providedExports = exportsInfo.getProvidedExports();
+  if (providedExports === null) {
+    return { kind: "unknown" };
+  }
+  if (providedExports === true) {
+    return { kind: "dynamic" };
+  }
+  return { kind: "list", exports: providedExports };
+}
+
+function serializeUsedExports(exportsInfo) {
+  const usedExports = exportsInfo.getUsedExports(undefined);
+  if (usedExports === null) {
+    return { kind: "unknown" };
+  }
+  if (usedExports === true) {
+    return { kind: "namespace" };
+  }
+  if (usedExports === false) {
+    return { kind: "unused" };
+  }
+  return { kind: "list", exports: [...usedExports] };
+}
+
+function serializeSpecialExportInfo(name, exportInfo, moduleGraph) {
+  return {
+    name,
+    usedState: serializeUsedState(exportInfo),
+    usedLabel: exportInfo.getUsedInfo(),
+    providedState: serializeProvidedState(exportInfo),
+    providedLabel: exportInfo.getProvidedInfo(),
+    renameLabel: exportInfo.getRenameInfo(),
+    terminalBinding: Boolean(exportInfo.terminalBinding),
+    isReexport: exportInfo.isReexport(),
+    target: serializeTarget(exportInfo.getTarget(moduleGraph)),
+  };
+}
+
+function serializeExportsInfo(exportsInfo, moduleGraph, seen = new WeakSet()) {
+  if (seen.has(exportsInfo)) {
+    return null;
+  }
+  seen.add(exportsInfo);
+
+  const ownedExportNames = new Set(
+    Array.from(exportsInfo.ownedExports, (exportInfo) => exportInfo.name)
+  );
+  const redirectedExportNames =
+    exportsInfo._redirectTo !== undefined
+      ? Array.from(exportsInfo._redirectTo.orderedExports, (exportInfo) => exportInfo.name)
+          .filter((name) => !ownedExportNames.has(name))
+      : [];
+
+  return {
+    providedExports: serializeProvidedExports(exportsInfo),
+    usedExports: serializeUsedExports(exportsInfo),
+    exports: Array.from(exportsInfo.orderedExports, (exportInfo) => ({
+      name: exportInfo.name,
+      ownership: ownedExportNames.has(exportInfo.name) ? "owned" : "redirected",
+      usedState: serializeUsedState(exportInfo),
+      usedLabel: exportInfo.getUsedInfo(),
+      providedState: serializeProvidedState(exportInfo),
+      providedLabel: exportInfo.getProvidedInfo(),
+      renameLabel: exportInfo.getRenameInfo(),
+      usedName: typeof exportInfo._usedName === "string" ? exportInfo._usedName : null,
+      terminalBinding: Boolean(exportInfo.terminalBinding),
+      isReexport: exportInfo.isReexport(),
+      target: serializeTarget(exportInfo.getTarget(moduleGraph)),
+      nested: exportInfo.exportsInfo
+        ? serializeExportsInfo(exportInfo.exportsInfo, moduleGraph, seen)
+        : null,
+    })),
+    otherExportsInfo: serializeSpecialExportInfo(
+      "other exports",
+      exportsInfo.otherExportsInfo,
+      moduleGraph
+    ),
+    sideEffectsOnlyInfo: serializeSpecialExportInfo(
+      "side effects only",
+      exportsInfo._sideEffectsOnlyInfo,
+      moduleGraph
+    ),
+    isUsed: exportsInfo.isUsed(undefined),
+    isModuleUsed: exportsInfo.isModuleUsed(undefined),
+    hasRedirect: exportsInfo._redirectTo !== undefined,
+    redirectedExportNames,
+  };
+}
 
 let allModules = [];
 
@@ -113,7 +234,7 @@ compiler.hooks.compilation.tap("debug plugin", (compilation) => {
     const moduleGraph = compilation.moduleGraph;
     
     allModules = [...modules].map((module) => {
-      const modulePath = module.resource || module.identifier();
+      const modulePath = getModulePath(module);
       
       // Get dependencies with target module info
       const deps = (module.dependencies || []).map((dep) => {
@@ -150,6 +271,7 @@ compiler.hooks.compilation.tap("debug plugin", (compilation) => {
         deps,
         presentationalDeps,
         blocks,
+        exportsInfo: serializeExportsInfo(moduleGraph.getExportsInfo(module), moduleGraph),
       };
     });
   });
