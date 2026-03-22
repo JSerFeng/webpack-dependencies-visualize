@@ -20,6 +20,7 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   FileMap,
+  SerializedModuleGraphConnection,
   WebpackBlock,
   WebpackDependency,
   WebpackModule,
@@ -28,6 +29,7 @@ import DependencyLines, { getDepColor } from './DependencyLines';
 import ExportsInfoView from './ExportsInfoView';
 import FileTabBar from './FileTabBar';
 import styles from './MainLayout.module.css';
+import ModuleGraphConnectionView from './ModuleGraphConnectionView';
 
 const { Sider, Content } = Layout;
 
@@ -67,6 +69,7 @@ console.log(renamedBar);
 
 const DEFAULT_UTILS = `// utils.js
 export * from './lib.js';
+export * from './ghost.js';
 export const bar = 42;
 `;
 
@@ -80,6 +83,10 @@ export const nested = {
     value: 1,
   },
 };
+`;
+
+const DEFAULT_GHOST = `// ghost.js
+export const invisible = 'unused reexport branch';
 `;
 
 const DEFAULT_SIDE = `// side.js
@@ -112,6 +119,7 @@ const DEFAULT_FILES: FileMap = {
   'index.js': DEFAULT_CODE,
   'utils.js': DEFAULT_UTILS,
   'lib.js': DEFAULT_LIB,
+  'ghost.js': DEFAULT_GHOST,
   'side.js': DEFAULT_SIDE,
   'style.css': DEFAULT_STYLE,
   'base.css': DEFAULT_BASE_CSS,
@@ -135,9 +143,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // New file modal state
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState('');
-  const [resultView, setResultView] = useState<'dependencies' | 'exports'>(
-    'dependencies',
-  );
+  const [resultView, setResultView] = useState<
+    'dependencies' | 'exports' | 'connections'
+  >('dependencies');
 
   // Monaco editor
   const monaco = useMonaco();
@@ -766,6 +774,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     drawLineToModule(dep, colorIndex, totalDeps);
   };
 
+  const highlightConnectionLoc = (
+    connection: SerializedModuleGraphConnection,
+  ) => {
+    if (!connection.loc) return;
+    highlightRange({ loc: connection.loc } as WebpackDependency);
+  };
+
   const handleCompileClick = () => {
     setIsDirty(false);
     onCompile(files);
@@ -820,11 +835,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     ? currentModule.deps.filter((d) => d.targetModule).length
     : 0;
   let colorIndex = 0;
-  const jsonTitle = resultView === 'dependencies' ? 'JSON' : 'ExportsInfo JSON';
+  const jsonTitle =
+    resultView === 'dependencies'
+      ? 'JSON'
+      : resultView === 'exports'
+        ? 'ExportsInfo JSON'
+        : 'ModuleGraphConnection JSON';
   const jsonValue =
     resultView === 'dependencies'
       ? JSON.stringify(stats, null, 2)
-      : JSON.stringify(currentModule?.exportsInfo ?? null, null, 2);
+      : resultView === 'exports'
+        ? JSON.stringify(currentModule?.exportsInfo ?? null, null, 2)
+        : JSON.stringify(
+            currentModule?.moduleGraphConnections ?? null,
+            null,
+            2,
+          );
 
   // Check if a dep item should be highlighted from editor hover
   const isDepHighlightedFromEditor = (depIdx: number) =>
@@ -972,6 +998,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 >
                   ExportsInfo
                 </button>
+                <button
+                  type="button"
+                  className={`analysis-tab-btn ${resultView === 'connections' ? 'active' : ''}`}
+                  onClick={() => setResultView('connections')}
+                >
+                  ModuleGraphConnection
+                </button>
               </div>
             )}
             {!shouldShowStats ? (
@@ -1107,10 +1140,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     })}
                   </Card>
                 </div>
+              ) : resultView === 'exports' ? (
+                <ExportsInfoView module={currentModule} />
               ) : (
-                <ExportsInfoView
+                <ModuleGraphConnectionView
                   module={currentModule}
-                  activeFile={activeFile}
+                  onHoverOutgoingConnection={highlightConnectionLoc}
+                  onLeaveOutgoingConnection={clearHighlight}
+                  onSelectOutgoingConnection={highlightConnectionLoc}
                 />
               )
             ) : (

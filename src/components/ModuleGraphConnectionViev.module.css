@@ -1,0 +1,19 @@
+.connectionsGroupHeader {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.connectionsGroupHeaderTop {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.connections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}

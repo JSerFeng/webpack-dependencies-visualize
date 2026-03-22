@@ -10,7 +10,6 @@ import type {
 
 interface ExportsInfoViewProps {
   module: WebpackModule;
-  activeFile: string;
 }
 
 const getModuleLabel = (modulePath: string) => {
@@ -56,7 +55,6 @@ const getUsageTone = (usedState: SerializedExportInfo['usedState']) => {
       return 'sky';
     case 'no-info':
       return 'slate';
-    case 'unused':
     default:
       return 'graphite';
   }
@@ -72,7 +70,6 @@ const getProvidedTone = (
       return 'amber';
     case 'not-provided':
       return 'rose';
-    case 'no-info':
     default:
       return 'slate';
   }
@@ -227,10 +224,7 @@ const ExportNode: React.FC<{
   </div>
 );
 
-const ExportsInfoView: React.FC<ExportsInfoViewProps> = ({
-  module,
-  activeFile,
-}) => {
+const ExportsInfoView: React.FC<ExportsInfoViewProps> = ({ module }) => {
   const exportsInfo = module.exportsInfo;
 
   if (!exportsInfo) {

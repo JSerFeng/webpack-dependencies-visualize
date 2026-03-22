@@ -74,12 +74,62 @@ export type SerializedExportsInfo = {
   redirectedExportNames: string[];
 };
 
+export type SerializedConnectionState =
+  | 'active'
+  | 'inactive'
+  | 'transitive-only'
+  | 'circular-connection';
+
+export type SerializedConnectionEndpoint = {
+  modulePath: string;
+  moduleLabel: string;
+};
+
+export type SerializedConnectionSide = {
+  current: SerializedConnectionEndpoint | null;
+  resolved: SerializedConnectionEndpoint | null;
+  changedByResolution: boolean;
+};
+
+export type SerializedConnectionLocation = {
+  start: {
+    line: number;
+    column: number;
+  };
+  end: {
+    line: number;
+    column: number;
+  };
+};
+
+export type SerializedModuleGraphConnection = {
+  dependencyType: string | null;
+  dependencyCategory: string | null;
+  request: string | null;
+  loc: SerializedConnectionLocation | null;
+  weak: boolean;
+  conditional: boolean;
+  activeState: SerializedConnectionState;
+  isActive: boolean;
+  isTargetActive: boolean;
+  origin: SerializedConnectionSide;
+  target: SerializedConnectionSide;
+  explanation: string;
+  explanations: string[];
+};
+
+export type SerializedModuleGraphConnections = {
+  incoming: SerializedModuleGraphConnection[];
+  outgoing: SerializedModuleGraphConnection[];
+};
+
 export type WebpackModule = {
   path: string;
   deps: WebpackDependency[];
   presentationalDeps: WebpackDependency[];
   blocks: WebpackBlock[];
   exportsInfo: SerializedExportsInfo | null;
+  moduleGraphConnections: SerializedModuleGraphConnections | null;
 };
 
 export interface CompileResult {

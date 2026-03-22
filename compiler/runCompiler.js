@@ -1,7 +1,11 @@
 const webpack = require('webpack');
-const path = require('path');
+const path = require('node:path');
 const config = require('./webpack.config');
 const { UsageState } = require('webpack/lib/ExportsInfo');
+const {
+  CIRCULAR_CONNECTION,
+  TRANSITIVE_ONLY,
+} = require('webpack/lib/ModuleGraphConnection');
 
 // Parse arguments
 const args = process.argv.slice(2);
@@ -52,7 +56,9 @@ function getRawData(dep) {
     const allKeys = new Set();
     let current = obj;
     while (current && current !== Object.prototype) {
-      Object.getOwnPropertyNames(current).forEach((key) => allKeys.add(key));
+      for (const key of Object.getOwnPropertyNames(current)) {
+        allKeys.add(key);
+      }
       current = Object.getPrototypeOf(current);
     }
 
@@ -95,6 +101,125 @@ function getModuleLabel(modulePath) {
   return label || normalized;
 }
 
+function serializeConnectionEndpoint(module) {
+  if (!module) {
+    return null;
+  }
+
+  const modulePath = getModulePath(module);
+  return {
+    modulePath,
+    moduleLabel: getModuleLabel(modulePath),
+  };
+}
+
+function serializeConnectionSide(currentModule, resolvedModule) {
+  const current = serializeConnectionEndpoint(currentModule);
+  const resolved = serializeConnectionEndpoint(resolvedModule);
+
+  return {
+    current,
+    resolved,
+    changedByResolution: current?.modulePath !== resolved?.modulePath,
+  };
+}
+
+function serializeConnectionState(connection) {
+  const activeState = connection.getActiveState(undefined);
+
+  if (activeState === true) {
+    return 'active';
+  }
+
+  if (activeState === false) {
+    return 'inactive';
+  }
+
+  if (activeState === TRANSITIVE_ONLY) {
+    return 'transitive-only';
+  }
+
+  if (activeState === CIRCULAR_CONNECTION) {
+    return 'circular-connection';
+  }
+
+  return 'inactive';
+}
+
+function serializeConnectionLoc(loc) {
+  if (
+    !loc ||
+    typeof loc !== 'object' ||
+    !('start' in loc) ||
+    !('end' in loc) ||
+    !loc.start ||
+    !loc.end
+  ) {
+    return null;
+  }
+
+  return {
+    start: {
+      line: loc.start.line,
+      column: loc.start.column,
+    },
+    end: {
+      line: loc.end.line,
+      column: loc.end.column,
+    },
+  };
+}
+
+function serializeModuleGraphConnection(connection) {
+  const dependency = connection.dependency;
+
+  return {
+    dependencyType:
+      dependency && typeof dependency.type === 'string'
+        ? dependency.type
+        : null,
+    dependencyCategory:
+      dependency && typeof dependency.category === 'string'
+        ? dependency.category
+        : null,
+    request:
+      dependency && typeof dependency.request === 'string'
+        ? dependency.request
+        : dependency && typeof dependency.userRequest === 'string'
+          ? dependency.userRequest
+          : null,
+    loc: serializeConnectionLoc(dependency?.loc),
+    weak: Boolean(connection.weak),
+    conditional: connection.conditional,
+    activeState: serializeConnectionState(connection),
+    isActive: connection.isActive(undefined),
+    isTargetActive: connection.isTargetActive(undefined),
+    origin: serializeConnectionSide(
+      connection.originModule,
+      connection.resolvedOriginModule,
+    ),
+    target: serializeConnectionSide(
+      connection.module,
+      connection.resolvedModule,
+    ),
+    explanation: connection.explanation,
+    explanations: connection.explanations ? [...connection.explanations] : [],
+  };
+}
+
+function serializeModuleGraphConnections(module, moduleGraph) {
+  return {
+    incoming: Array.from(
+      moduleGraph.getIncomingConnections(module),
+      serializeModuleGraphConnection,
+    ),
+    outgoing: Array.from(
+      moduleGraph.getOutgoingConnections(module),
+      serializeModuleGraphConnection,
+    ),
+  };
+}
+
 function serializeUsedState(exportInfo) {
   switch (exportInfo.getUsed(undefined)) {
     case UsageState.Unused:
@@ -105,7 +230,6 @@ function serializeUsedState(exportInfo) {
       return 'unknown';
     case UsageState.Used:
       return 'used';
-    case UsageState.NoInfo:
     default:
       return 'no-info';
   }
@@ -119,7 +243,6 @@ function serializeProvidedState(exportInfo) {
       return 'provided';
     case false:
       return 'not-provided';
-    case undefined:
     default:
       return 'no-info';
   }
@@ -280,6 +403,10 @@ compiler.hooks.compilation.tap('debug plugin', (compilation) => {
         blocks,
         exportsInfo: serializeExportsInfo(
           moduleGraph.getExportsInfo(module),
+          moduleGraph,
+        ),
+        moduleGraphConnections: serializeModuleGraphConnections(
+          module,
           moduleGraph,
         ),
       };
