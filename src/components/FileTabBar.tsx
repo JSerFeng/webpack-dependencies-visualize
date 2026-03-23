@@ -1,8 +1,10 @@
-import React from "react";
-import { Button } from "@arco-design/web-react";
-import { IconPlus, IconClose } from "@arco-design/web-react/icon";
+import { Button } from '@arco-design/web-react';
+import { IconClose, IconPlus } from '@arco-design/web-react/icon';
+import classNames from 'classnames';
+import type React from 'react';
 
 interface FileTabBarProps {
+  className?: string;
   files: string[];
   activeFile: string;
   onSelectFile: (filename: string) => void;
@@ -12,6 +14,7 @@ interface FileTabBarProps {
 }
 
 const FileTabBar: React.FC<FileTabBarProps> = ({
+  className,
   files,
   activeFile,
   onSelectFile,
@@ -20,18 +23,18 @@ const FileTabBar: React.FC<FileTabBarProps> = ({
   fileTabRefs,
 }) => {
   return (
-    <div className="file-tab-bar">
+    <div className={classNames('file-tab-bar', className)}>
       {files.map((filename) => (
         <div
           key={filename}
           ref={(el) => {
             fileTabRefs.current[filename] = el;
           }}
-          className={`file-tab ${activeFile === filename ? "active" : ""}`}
+          className={`file-tab ${activeFile === filename ? 'active' : ''}`}
           onClick={() => onSelectFile(filename)}
         >
           <span className="file-tab-name">{filename}</span>
-          {filename !== "index.js" && (
+          {filename !== 'index.js' && (
             <IconClose
               className="file-tab-close"
               onClick={(e) => {

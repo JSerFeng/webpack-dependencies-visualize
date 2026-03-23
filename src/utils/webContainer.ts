@@ -1,11 +1,11 @@
-import { WebContainer } from "@webcontainer/api";
+import { WebContainer } from '@webcontainer/api';
 let instance: Promise<WebContainer> | null = null;
 let snapshotPromise: Promise<ArrayBuffer> | null = null;
 
 // 预加载snapshot文件
 const preloadSnapshot = () => {
   if (!snapshotPromise) {
-    snapshotPromise = fetch("/snapshot")
+    snapshotPromise = fetch('/snapshot')
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load snapshot: ${res.status}`);
         return res.arrayBuffer();
@@ -40,14 +40,14 @@ export const initWebContainer = async () => {
     return instance;
   } catch (error) {
     rejectInstance!(error);
-    console.error("Failed to initialize WebContainer:", error);
+    console.error('Failed to initialize WebContainer:', error);
     throw error;
   }
 };
 
 export const getWebContainer = async () => {
   if (!instance) {
-    throw new Error("WebContainer not initialized");
+    throw new Error('WebContainer not initialized');
   }
   return instance;
 };
@@ -64,7 +64,7 @@ export const mkdir = async (path: string) => {
 
 export const readFile = async (path: string) => {
   const container = await getWebContainer();
-  const contents = await container.fs.readFile(path, "utf-8");
+  const contents = await container.fs.readFile(path, 'utf-8');
   return contents;
 };
 
